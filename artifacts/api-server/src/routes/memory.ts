@@ -1,6 +1,6 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 
-const router: IRouter = Router();
+const router = Router();
 
 type GenerateMemoryBody = {
   imageBase64?: string;
@@ -44,11 +44,11 @@ router.post(
 
     const imagePart = imageBase64
       ? {
-          inlineData: {
-            mimeType,
-            data: imageBase64.replace(/^data:[^;]+;base64,/, ""),
-          },
-        }
+        inlineData: {
+          mimeType,
+          data: imageBase64.replace(/^data:[^;]+;base64,/, ""),
+        },
+      }
       : null;
 
     const prompt = [
