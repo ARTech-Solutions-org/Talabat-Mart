@@ -6,9 +6,9 @@ import { logger } from "./lib/logger.js";
 
 const app = express();
 
-// @ts-ignore - pinoHttp is a function at runtime but TS thinks it's a namespace
+const pinoHttpFn = pinoHttp as any;
 app.use(
-  pinoHttp({
+  pinoHttpFn({
     logger,
     serializers: {
       req(req: any) {
