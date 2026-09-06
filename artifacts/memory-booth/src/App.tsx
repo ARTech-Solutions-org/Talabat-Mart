@@ -362,12 +362,12 @@ function GeneratingStep({ progress }: { progress: number }) {
     <main className="booth-main">
       <section className="step-panel generating-wrap" data-testid="step-generating">
         <div className="generating-art" aria-hidden="true">
-           <img src={demoPhoto} alt="" />
-           <div className="booth-orb"><Camera size={35} strokeWidth={1.5} /></div>
+          <img src={demoPhoto} alt="" />
+          <div className="booth-orb"><Camera size={35} strokeWidth={1.5} /></div>
         </div>
         <div className="generation-copy">
-           <span className="eyebrow">05 / generating</span>
-           <h1>Creating your memory...</h1>
+          <span className="eyebrow">05 / generating</span>
+          <h1>Creating your memory...</h1>
           <p data-testid="status-generation-message">{currentMessage}. The original composition stays locked while the age and background transform around it.</p>
           <div className="progress-shell">
             <div className="progress-meta"><span>Creating your memory</span><span data-testid="status-generation-progress">{progress}%</span></div>
@@ -590,11 +590,17 @@ function Home() {
           location,
         }),
       });
-      const payload = (await response.json()) as {
+      const responseText = await response.text();
+      let payload: {
         imageBase64?: string;
         mimeType?: string;
         error?: string;
-      };
+      } = {};
+      try {
+        payload = responseText ? (JSON.parse(responseText) as typeof payload) : {};
+      } catch {
+        throw new Error(`The generation service returned an invalid response (${response.status}).`);
+      }
       if (!response.ok || !payload.imageBase64 || !payload.mimeType) {
         throw new Error(payload.error ?? 'The memory could not be generated.');
       }

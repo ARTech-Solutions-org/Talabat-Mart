@@ -113,7 +113,8 @@ router.post(
         },
       )) as GeminiHttpResponse;
 
-      const payload = await response.json();
+      const responseText = await response.json().catch(() => null);
+      const payload = responseText ?? {};
 
       if (!response.ok) {
         req.log.error(
