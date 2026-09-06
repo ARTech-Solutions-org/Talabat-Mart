@@ -1,5 +1,3 @@
-import app from "../../artifacts/api-server/src/app";
-
 export const config = {
   api: {
     bodyParser: false,
@@ -11,16 +9,28 @@ type VercelRequest = {
   [key: string]: unknown;
 };
 
-type ExpressHandler = (req: VercelRequest, res: unknown) => unknown;
-const expressHandler = app as unknown as ExpressHandler;
+let expressHandler: any = null;
 
-export default function handler(req: VercelRequest, res: unknown) {
-  // The explicit Vercel route can receive either the original path or "/".
-  if (!req.url || req.url === "/" || req.url === "/memory/generate") {
-    req.url = "/api/memory/generate";
-  } else if (!req.url.startsWith("/api")) {
-    req.url = `/api${req.url.startsWith("/") ? req.url : `/${req.url}`}`;
+export default async function handler(req: VercelRequest, res: any) {
+  try {
+    if (!expressHandler) {
+      const appModule = await import("../../artifacts/api-server/src/app");
+      expressHandler = appModule.default || appModule;
+      if (typeof expressHandler !== "function") {
+        throw new Error(`expressHandler is not a function, it is: ${typeof expressHandler}`);
+      }
+    }
+
+    if (!req.url || req.url === "/" || req.url === "/memory/generate") {
+      req.url = "/api/memory/generate";
+    } else if (!req.url.startsWith("/api")) {
+      req.url = `/api${req.url.startsWith("/") ? req.url : `/${req.url}`}`;
+    }
+
+    return expressHandler(req, res);
+  } catch (error: any) {
+    res.status(500).json({
+      error: `Vercel Startup Error: ${error.message ?? String(error)}`,
+    });
   }
-
-  return expressHandler(req, res);
 }
