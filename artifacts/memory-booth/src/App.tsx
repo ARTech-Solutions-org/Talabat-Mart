@@ -447,11 +447,17 @@ function ResultStep({
       </main>
 
       <div className="print-area">
-        <div className="print-frame">
-          <div className="print-frame-inner">
-            <img src={resultImage} alt="Printed Memory" />
-            <div className="print-brand">talabat</div>
-          </div>
+        <div className="print-container">
+          <img 
+            src={generatedImage ?? photoDataUrl ?? demoPhoto} 
+            alt="Memory" 
+            className="print-photo"
+          />
+          <img 
+            src="/frame-transparent.png" 
+            alt="Frame" 
+            className="print-frame-overlay" 
+          />
         </div>
       </div>
 
@@ -472,65 +478,59 @@ function ResultStep({
 
 const createFramedImageBase64 = (rawBase64: string): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1200;
-      canvas.height = 2130;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("No canvas context"));
+    const frameImg = new Image();
+    frameImg.crossOrigin = "anonymous";
+    frameImg.onload = () => {
+      const photoImg = new Image();
+      photoImg.crossOrigin = "anonymous";
+      photoImg.onload = () => {
+        const canvas = document.createElement("canvas");
+        // Canvas size matches the frame provided by the user (1080x1350)
+        canvas.width = 1080;
+        canvas.height = 1350;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("No canvas context"));
 
-      // Outer border
-      ctx.fillStyle = "#7d1f35";
-      ctx.fillRect(0, 0, 1200, 2130);
+        // Fill background with white to avoid transparent PNG background issues
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, 1080, 1350);
 
-      // Frame background
-      ctx.fillStyle = "#ef5b32";
-      ctx.fillRect(24, 24, 1152, 2082);
+        // Target bounds for the photo inside the frame (13.5% L, 23.2% T, 68.5% W, 62.2% H)
+        // User points approx: X=146, Y=313, W=740, H=840
+        const targetX = 146;
+        const targetY = 313;
+        const targetW = 740;
+        const targetH = 840;
 
-      // Inner background
-      ctx.fillStyle = "#fbf5e9";
-      ctx.beginPath();
-      ctx.roundRect(69, 69, 1062, 1992, 30);
-      ctx.fill();
+        const imgRatio = photoImg.width / photoImg.height;
+        const targetRatio = targetW / targetH;
+        let drawW = photoImg.width;
+        let drawH = photoImg.height;
+        let sx = 0;
+        let sy = 0;
+        
+        if (imgRatio > targetRatio) {
+          drawW = photoImg.height * targetRatio;
+          sx = (photoImg.width - drawW) / 2;
+        } else {
+          drawH = photoImg.width / targetRatio;
+          sy = (photoImg.height - drawH) / 2;
+        }
+        
+        ctx.save();
+        ctx.drawImage(photoImg, sx, sy, drawW, drawH, targetX, targetY, targetW, targetH);
+        ctx.restore();
 
-      // Image with object-fit: cover
-      const targetW = 1002;
-      const targetH = 1737;
-      const imgRatio = img.width / img.height;
-      const targetRatio = targetW / targetH;
-      let drawW = img.width;
-      let drawH = img.height;
-      let sx = 0;
-      let sy = 0;
-      
-      if (imgRatio > targetRatio) {
-        drawW = img.height * targetRatio;
-        sx = (img.width - drawW) / 2;
-      } else {
-        drawH = img.width / targetRatio;
-        sy = (img.height - drawH) / 2;
-      }
-      
-      ctx.save();
-      ctx.beginPath();
-      ctx.roundRect(99, 99, targetW, targetH, 15);
-      ctx.clip();
-      ctx.drawImage(img, sx, sy, drawW, drawH, 99, 99, targetW, targetH);
-      ctx.restore();
+        // Draw the transparent frame overlay
+        ctx.drawImage(frameImg, 0, 0, 1080, 1350);
 
-      // Brand text
-      ctx.fillStyle = "#ef5b32";
-      ctx.font = "bold 105px Georgia, serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("talabat", 600, 99 + targetH + 75 + 52);
-
-      resolve(canvas.toDataURL("image/jpeg", 0.9));
+        resolve(canvas.toDataURL("image/jpeg", 0.9));
+      };
+      photoImg.onerror = reject;
+      photoImg.src = rawBase64;
     };
-    img.onerror = reject;
-    img.src = rawBase64;
+    frameImg.onerror = reject;
+    frameImg.src = "/frame-transparent.png";
   });
 };
 

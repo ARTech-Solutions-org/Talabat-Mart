@@ -3463,48 +3463,35 @@ body {
     background: #fbf5e9;
   }
 
-  .print-frame {
+  .print-container {
     position: relative;
-    width: 3.6in;
-    height: 6.7in;
-    padding: 0.15in;
-    background: #ef5b32;
-    border: 0.08in solid #7d1f35;
-    border-radius: 0.15in;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .print-frame-inner {
     width: 100%;
-    flex-grow: 1;
-    background: #fbf5e9;
-    border-radius: 0.1in;
-    padding: 0.1in;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    max-width: 450px;
+    aspect-ratio: 1080 / 1350;
+    margin: 0 auto;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 12px;
   }
-
-  .print-frame img {
-    width: 100%;
-    height: 0;
-    flex-grow: 1;
+  .print-photo {
+    position: absolute;
+    top: 23.2%;
+    left: 13.5%;
+    width: 68.5%;
+    height: 62.2%;
     object-fit: cover;
-    border-radius: 0.05in;
+    z-index: 1;
   }
-  
-  .print-brand {
-    margin-top: 0.25in;
-    font-family: var(--app-font-serif);
-    font-size: 0.35in;
-    font-weight: 700;
-    color: #ef5b32;
-    text-align: center;
-    padding-bottom: 0.15in;
-    flex-shrink: 0;
+  .print-frame-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+    object-fit: cover;
   }
 }
 
