@@ -575,44 +575,10 @@ function Home() {
   };
 
   const goGenerate = async () => {
-    setProgress(0);
+    setProgress(100);
     setGenerationError(null);
-    setGeneratedImage(null);
+    setGeneratedImage(photoDataUrl ?? demoPhoto);
     setStep('generating');
-    try {
-      const response = await fetch('/api/memory/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: photoDataUrl,
-          mimeType: photoDataUrl?.match(/^data:([^;]+);/)?.[1],
-          experience,
-          location,
-        }),
-      });
-      const responseText = await response.text();
-      let payload: {
-        imageBase64?: string;
-        mimeType?: string;
-        error?: string;
-      } = {};
-      try {
-        payload = responseText ? (JSON.parse(responseText) as typeof payload) : {};
-      } catch {
-        throw new Error(`The generation service returned an invalid response (${response.status}).`);
-      }
-      if (!response.ok || !payload.imageBase64 || !payload.mimeType) {
-        throw new Error(
-          payload.error ?? `The generation service returned HTTP ${response.status}.`,
-        );
-      }
-      setGeneratedImage(`data:${payload.mimeType};base64,${payload.imageBase64}`);
-      setProgress(100);
-    } catch (error) {
-      setGenerationError(
-        error instanceof Error ? error.message : 'The memory could not be generated.',
-      );
-    }
   };
 
   useEffect(() => {
