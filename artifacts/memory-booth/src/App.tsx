@@ -387,6 +387,8 @@ function GeneratingStep({ progress }: { progress: number }) {
 
 function ResultStep({
   saved,
+  isUploading,
+  qrUrl,
   generatedImage,
   onSave,
   onPrint,
@@ -394,6 +396,8 @@ function ResultStep({
   onCloseQR,
 }: {
   saved: boolean;
+  isUploading: boolean;
+  qrUrl: string | null;
   generatedImage: string | null;
   onSave: () => void;
   onPrint: () => void;
@@ -401,7 +405,6 @@ function ResultStep({
   onCloseQR: () => void;
 }) {
   const resultImage = generatedImage ?? demoPhoto;
-  const dummyQrUrl = "https://talabat.com/download/memory";
 
   return (
     <>
@@ -430,8 +433,8 @@ function ResultStep({
               <img src={resultImage} alt="AI generated family memory" />
             </div>
             <div className="result-kiosk-actions">
-              <button className="result-save-button" type="button" onClick={onSave} data-testid="button-save-memory">
-                {saved ? 'Show QR Code' : 'Save memory'}
+              <button className="result-save-button" type="button" onClick={onSave} disabled={isUploading} data-testid="button-save-memory">
+                {isUploading ? 'Uploading...' : saved ? 'Show QR Code' : 'Save memory'}
                 <QrCode size={25} />
               </button>
               <button className="result-print-button" type="button" onClick={onPrint} data-testid="button-print-memory">
@@ -452,12 +455,12 @@ function ResultStep({
         </div>
       </div>
 
-      {saved && (
+      {saved && qrUrl && (
         <>
           <div className="qr-modal-backdrop no-print" onClick={onCloseQR} />
           <div className="qr-modal no-print">
             <h2>Scan to Download</h2>
-            <QRCodeSVG value={dummyQrUrl} size={180} bgColor={"#ffffff"} fgColor={"#7d1f35"} level={"Q"} />
+            <QRCodeSVG value={qrUrl} size={180} bgColor={"#ffffff"} fgColor={"#7d1f35"} level={"Q"} />
             <p>Point your phone's camera at this QR code to download your memory.</p>
             <button className="booth-button booth-button-ghost" onClick={onCloseQR}>Close</button>
           </div>
@@ -480,6 +483,8 @@ function Home() {
   const [toast, setToast] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -587,6 +592,8 @@ function Home() {
     setSaved(false);
     setGeneratedImage(null);
     setGenerationError(null);
+    setQrUrl(null);
+    setIsUploading(false);
   };
 
   const handleUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -600,6 +607,31 @@ function Home() {
       setToast('Your frame is ready for the booth.');
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleSaveMemory = async () => {
+    if (qrUrl) {
+      setSaved(true);
+      return;
+    }
+    
+    setIsUploading(true);
+    try {
+      const response = await fetch('/api/memory/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: generatedImage ?? photoDataUrl ?? demoPhoto }),
+      });
+      if (!response.ok) throw new Error('Failed to upload image');
+      const data = await response.json();
+      setQrUrl(data.url);
+      setSaved(true);
+      setToast('Memory saved. Scan the QR code to download it.');
+    } catch (err) {
+      setToast('Failed to upload memory. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const goGenerate = async () => {
@@ -675,8 +707,10 @@ function Home() {
       {step === 'result' && (
         <ResultStep
           saved={saved}
+          isUploading={isUploading}
+          qrUrl={qrUrl}
           generatedImage={generatedImage}
-          onSave={() => { setSaved(true); setToast('Memory saved. Scan the QR code to keep it.'); }}
+          onSave={handleSaveMemory}
           onPrint={() => { window.print(); setToast('Print view opened.'); }}
           onStartOver={startOver}
           onCloseQR={() => setSaved(false)}

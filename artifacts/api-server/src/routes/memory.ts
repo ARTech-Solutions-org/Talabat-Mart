@@ -163,4 +163,35 @@ router.post(
   },
 );
 
+router.post("/memory/upload", async (req: MemoryRequest, res: MemoryResponse) => {
+  try {
+    const { imageBase64 } = req.body ?? {};
+    if (!imageBase64) {
+      res.status(400).json({ error: "Missing image data." });
+      return;
+    }
+    const data = imageBase64.replace(/^data:[^;]+;base64,/, "");
+    const buffer = Buffer.from(data, "base64");
+    
+    const formData = new FormData();
+    formData.append("reqtype", "fileupload");
+    formData.append("fileToUpload", new Blob([buffer]), "memory.png");
+    
+    const uploadRes = await fetch("https://catbox.moe/user/api.php", {
+      method: "POST",
+      body: formData,
+    });
+    
+    if (!uploadRes.ok) {
+      throw new Error(`Upload failed with status ${uploadRes.status}`);
+    }
+    
+    const url = await uploadRes.text();
+    res.json({ url });
+  } catch (error) {
+    req.log?.error({ err: error }, "Failed to upload image to catbox");
+    res.status(502).json({ error: "Could not upload image for QR code." });
+  }
+});
+
 export default router;
