@@ -9,6 +9,9 @@
     },
     "api/memory/generate.ts": {
       "maxDuration": 60
+    },
+    "api/memory/upload.ts": {
+      "maxDuration": 60
     }
   }
 }
