@@ -1,8 +1,16 @@
 import app from "../artifacts/api-server/src/app";
 
+type VercelRequest = {
+  url?: string;
+  [key: string]: unknown;
+};
+
+type ExpressHandler = (req: VercelRequest, res: unknown) => unknown;
+const expressHandler = app as unknown as ExpressHandler;
+
 export default function handler(
-  req: Parameters<typeof app>[0],
-  res: Parameters<typeof app>[1],
+  req: VercelRequest,
+  res: unknown,
 ) {
   // Vercel may pass the dynamic function path with or without the /api prefix.
   // The shared Express app mounts its router at /api, so normalize both forms.
@@ -10,5 +18,5 @@ export default function handler(
     req.url = `/api${req.url.startsWith("/") ? req.url : `/${req.url}`}`;
   }
 
-  return app(req, res);
+  return expressHandler(req, res);
 }
