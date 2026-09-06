@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -390,52 +391,79 @@ function ResultStep({
   onSave,
   onPrint,
   onStartOver,
+  onCloseQR,
 }: {
   saved: boolean;
   generatedImage: string | null;
   onSave: () => void;
   onPrint: () => void;
   onStartOver: () => void;
+  onCloseQR: () => void;
 }) {
   const resultImage = generatedImage ?? demoPhoto;
+  const dummyQrUrl = "https://talabat.com/download/memory";
+
   return (
-    <main className="booth-main">
-      <section className="portrait-step-card result-screen" data-testid="step-result">
-        <div className="result-topbar">
-          <button type="button" onClick={onStartOver} aria-label="Start another memory" data-testid="button-make-another">
-            <ChevronLeft size={23} />
-          </button>
-          <span className="camera-talabat">talabat</span>
-          <House size={21} aria-hidden="true" />
-        </div>
-        <div className="result-kiosk-content">
-          <div className="result-kiosk-heading">
-            <Sparkles aria-hidden="true" />
-            <h1>Here&apos;s your<br />memory!</h1>
-            <Sparkles aria-hidden="true" />
-            <Heart aria-hidden="true" />
-          </div>
-          <div className="result-photo-block">
-            <span>Original photo</span>
-            <img src={demoPhoto} alt="Original family photo" />
-          </div>
-          <div className="result-photo-block">
-            <span>AI generated photo</span>
-            <img src={resultImage} alt="AI generated family memory" />
-          </div>
-          <div className="result-kiosk-actions">
-            <button className="result-save-button" type="button" onClick={onSave} data-testid="button-save-memory">
-              {saved ? 'Saved!' : 'Save memory'}
-              <QrCode size={25} />
+    <>
+      <main className="booth-main no-print">
+        <section className="portrait-step-card result-screen" data-testid="step-result">
+          <div className="result-topbar">
+            <button type="button" onClick={onStartOver} aria-label="Start another memory" data-testid="button-make-another">
+              <ChevronLeft size={23} />
             </button>
-            <button className="result-print-button" type="button" onClick={onPrint} data-testid="button-print-memory">
-              Print the memory
-              <Printer size={27} />
-            </button>
+            <span className="camera-talabat">talabat</span>
+            <House size={21} aria-hidden="true" />
+          </div>
+          <div className="result-kiosk-content">
+            <div className="result-kiosk-heading">
+              <Sparkles aria-hidden="true" />
+              <h1>Here&apos;s your<br />memory!</h1>
+              <Sparkles aria-hidden="true" />
+              <Heart aria-hidden="true" />
+            </div>
+            <div className="result-photo-block">
+              <span>Original photo</span>
+              <img src={demoPhoto} alt="Original family photo" />
+            </div>
+            <div className="result-photo-block">
+              <span>AI generated photo</span>
+              <img src={resultImage} alt="AI generated family memory" />
+            </div>
+            <div className="result-kiosk-actions">
+              <button className="result-save-button" type="button" onClick={onSave} data-testid="button-save-memory">
+                {saved ? 'Show QR Code' : 'Save memory'}
+                <QrCode size={25} />
+              </button>
+              <button className="result-print-button" type="button" onClick={onPrint} data-testid="button-print-memory">
+                Print the memory
+                <Printer size={27} />
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <div className="print-area">
+        <div className="print-frame">
+          <div className="print-frame-inner">
+            <img src={resultImage} alt="Printed Memory" />
+            <div className="print-brand">talabat</div>
           </div>
         </div>
-      </section>
-    </main>
+      </div>
+
+      {saved && (
+        <>
+          <div className="qr-modal-backdrop no-print" onClick={onCloseQR} />
+          <div className="qr-modal no-print">
+            <h2>Scan to Download</h2>
+            <QRCodeSVG value={dummyQrUrl} size={180} bgColor={"#ffffff"} fgColor={"#7d1f35"} level={"Q"} />
+            <p>Point your phone's camera at this QR code to download your memory.</p>
+            <button className="booth-button booth-button-ghost" onClick={onCloseQR}>Close</button>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
@@ -648,9 +676,10 @@ function Home() {
         <ResultStep
           saved={saved}
           generatedImage={generatedImage}
-          onSave={() => { setSaved(true); setToast('Memory saved. Keep it somewhere close.'); }}
+          onSave={() => { setSaved(true); setToast('Memory saved. Scan the QR code to keep it.'); }}
           onPrint={() => { window.print(); setToast('Print view opened.'); }}
           onStartOver={startOver}
+          onCloseQR={() => setSaved(false)}
         />
       )}
       {toast && <div className="toast-message" role="status" data-testid="status-toast"><Check size={16} /> {toast}</div>}

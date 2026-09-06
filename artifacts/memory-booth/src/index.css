@@ -3429,3 +3429,114 @@ body {
     font-size: clamp(2.65rem, 13vw, 4.2rem);
   }
 }
+
+@media print {
+  @page {
+    size: 4in 7.1in;
+    margin: 0;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area, .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #fbf5e9;
+  }
+
+  .print-frame {
+    position: relative;
+    width: 3.6in;
+    height: 6.7in;
+    padding: 0.15in;
+    background: #ef5b32;
+    border: 0.08in solid #7d1f35;
+    border-radius: 0.15in;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .print-frame-inner {
+    width: 100%;
+    flex-grow: 1;
+    background: #fbf5e9;
+    border-radius: 0.1in;
+    padding: 0.1in;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .print-frame img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 9 / 12;
+    object-fit: cover;
+    border-radius: 0.05in;
+  }
+  
+  .print-brand {
+    margin-top: auto;
+    font-family: var(--app-font-serif);
+    font-size: 0.35in;
+    font-weight: 700;
+    color: #ef5b32;
+    text-align: center;
+    padding-bottom: 0.05in;
+  }
+}
+
+.qr-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 2.5rem;
+  border-radius: 1.8rem;
+  box-shadow: 0 1.2rem 3rem rgba(125, 31, 53, 0.25);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.qr-modal h2 {
+  font-family: var(--app-font-serif);
+  font-size: 1.8rem;
+  color: var(--berry);
+  margin: 0;
+}
+
+.qr-modal p {
+  color: #745d66;
+  font-size: 0.95rem;
+  max-width: 200px;
+  margin: 0;
+}
+
+.qr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(59, 30, 45, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 40;
+}
