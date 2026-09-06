@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from "express";
+import { Router } from "express";
 
 const router = Router();
 
@@ -7,6 +7,33 @@ type GenerateMemoryBody = {
   mimeType?: string;
   experience?: "younger" | "older";
   location?: "classroom" | "school-yard" | "reading-room" | "sunny-garden";
+};
+
+type MemoryRequest = {
+  body?: GenerateMemoryBody;
+  log: {
+    error: (...args: unknown[]) => void;
+  };
+};
+
+type MemoryResponse = {
+  status: (code: number) => MemoryResponse;
+  json: (body: unknown) => void;
+};
+
+type GeminiHttpResponse = {
+  ok: boolean;
+  status: number;
+  json: () => Promise<{
+    error?: { message?: string };
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          inlineData?: { mimeType?: string; data?: string };
+        }>;
+      };
+    }>;
+  }>;
 };
 
 const experiencePrompts = {
@@ -25,7 +52,7 @@ const locationPrompts = {
 
 router.post(
   "/memory/generate",
-  async (req: Request<unknown, unknown, GenerateMemoryBody>, res: Response) => {
+  async (req: MemoryRequest, res: MemoryResponse) => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       res.status(503).json({
@@ -69,7 +96,7 @@ router.post(
       : [{ text: `${prompt}\nThere is no source photo for this demo; create a warm illustrative sample with two people in a locked portrait composition.` }];
 
     try {
-      const response = await fetch(
+      const response = (await fetch(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
         {
           method: "POST",
@@ -84,18 +111,9 @@ router.post(
             },
           }),
         },
-      );
+      )) as GeminiHttpResponse;
 
-      const payload = (await response.json()) as {
-        error?: { message?: string };
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{
-              inlineData?: { mimeType?: string; data?: string };
-            }>;
-          };
-        }>;
-      };
+      const payload = await response.json();
 
       if (!response.ok) {
         req.log.error(
