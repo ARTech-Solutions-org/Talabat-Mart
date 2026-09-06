@@ -3430,6 +3430,10 @@ body {
   }
 }
 
+.print-area {
+  display: none;
+}
+
 @media print {
   @page {
     size: 4in 7.1in;
@@ -3445,6 +3449,7 @@ body {
   }
 
   .print-area {
+    display: flex;
     position: absolute;
     left: 0;
     top: 0;
