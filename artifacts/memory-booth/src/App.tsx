@@ -475,6 +475,70 @@ function ResultStep({
   );
 }
 
+const createFramedImageBase64 = (rawBase64: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1200;
+      canvas.height = 2130;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("No canvas context"));
+
+      // Outer border
+      ctx.fillStyle = "#7d1f35";
+      ctx.fillRect(0, 0, 1200, 2130);
+
+      // Frame background
+      ctx.fillStyle = "#ef5b32";
+      ctx.fillRect(24, 24, 1152, 2082);
+
+      // Inner background
+      ctx.fillStyle = "#fbf5e9";
+      ctx.beginPath();
+      ctx.roundRect(69, 69, 1062, 1992, 30);
+      ctx.fill();
+
+      // Image with object-fit: cover
+      const targetW = 1002;
+      const targetH = 1737;
+      const imgRatio = img.width / img.height;
+      const targetRatio = targetW / targetH;
+      let drawW = img.width;
+      let drawH = img.height;
+      let sx = 0;
+      let sy = 0;
+      
+      if (imgRatio > targetRatio) {
+        drawW = img.height * targetRatio;
+        sx = (img.width - drawW) / 2;
+      } else {
+        drawH = img.width / targetRatio;
+        sy = (img.height - drawH) / 2;
+      }
+      
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(99, 99, targetW, targetH, 15);
+      ctx.clip();
+      ctx.drawImage(img, sx, sy, drawW, drawH, 99, 99, targetW, targetH);
+      ctx.restore();
+
+      // Brand text
+      ctx.fillStyle = "#ef5b32";
+      ctx.font = "bold 105px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("talabat", 600, 99 + targetH + 75 + 52);
+
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
+    };
+    img.onerror = reject;
+    img.src = rawBase64;
+  });
+};
+
 function Home() {
   const [step, setStep] = useState<WizardStep>('welcome');
   const [experience, setExperience] = useState<Experience | null>(null);
@@ -622,10 +686,13 @@ function Home() {
     
     setIsUploading(true);
     try {
+      const rawImg = generatedImage ?? photoDataUrl ?? demoPhoto;
+      const framedBase64 = await createFramedImageBase64(rawImg);
+      
       const response = await fetch('/api/memory/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: generatedImage ?? photoDataUrl ?? demoPhoto }),
+        body: JSON.stringify({ imageBase64: framedBase64 }),
       });
       const text = await response.text();
       let data: any = {};
