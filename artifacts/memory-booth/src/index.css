@@ -3485,20 +3485,21 @@ body {
 
   .print-frame img {
     width: 100%;
-    height: auto;
-    aspect-ratio: 9 / 12;
+    height: 0;
+    flex-grow: 1;
     object-fit: cover;
     border-radius: 0.05in;
   }
   
   .print-brand {
-    margin-top: auto;
+    margin-top: 0.25in;
     font-family: var(--app-font-serif);
     font-size: 0.35in;
     font-weight: 700;
     color: #ef5b32;
     text-align: center;
-    padding-bottom: 0.05in;
+    padding-bottom: 0.15in;
+    flex-shrink: 0;
   }
 }
 
