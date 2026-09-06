@@ -627,8 +627,10 @@ function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: generatedImage ?? photoDataUrl ?? demoPhoto }),
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Failed to upload image');
+      const text = await response.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch {}
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}: ${text.slice(0, 100)}...`);
       setQrUrl(data.url);
       setSaved(true);
       setToast('Memory saved. Scan the QR code to download it.');
