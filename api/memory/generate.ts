@@ -14,7 +14,7 @@ let expressHandler: any = null;
 export default async function handler(req: VercelRequest, res: any) {
   try {
     if (!expressHandler) {
-      const appModule = await import("../../artifacts/api-server/src/app");
+      const appModule = await import("../../artifacts/api-server/src/app.js");
       expressHandler = appModule.default || appModule;
       if (typeof expressHandler !== "function") {
         throw new Error(`expressHandler is not a function, it is: ${typeof expressHandler}`);
