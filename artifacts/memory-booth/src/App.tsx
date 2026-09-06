@@ -495,12 +495,12 @@ const createFramedImageBase64 = (rawBase64: string): Promise<string> => {
         ctx.fillStyle = "#fff";
         ctx.fillRect(0, 0, 1080, 1350);
 
-        // Target bounds for the photo inside the frame (13.5% L, 23.2% T, 68.5% W, 62.2% H)
-        // User points approx: X=146, Y=313, W=740, H=840
-        const targetX = 146;
-        const targetY = 313;
-        const targetW = 740;
-        const targetH = 840;
+        // Target bounds for the photo inside the frame
+        // Expanded slightly to ensure it bleeds under the skewed cutout without white gaps
+        const targetX = 130;
+        const targetY = 300;
+        const targetW = 770;
+        const targetH = 870;
 
         const imgRatio = photoImg.width / photoImg.height;
         const targetRatio = targetW / targetH;
