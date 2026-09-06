@@ -497,10 +497,10 @@ const createFramedImageBase64 = (rawBase64: string): Promise<string> => {
 
         // Target bounds for the photo inside the frame
         // Expanded slightly to ensure it bleeds under the skewed cutout without white gaps
-        const targetX = 135;
-        const targetY = 300;
-        const targetW = 760;
-        const targetH = 720;
+        const targetX = 150;
+        const targetY = 260;
+        const targetW = 770;
+        const targetH = 760;
 
         const imgRatio = photoImg.width / photoImg.height;
         const targetRatio = targetW / targetH;
