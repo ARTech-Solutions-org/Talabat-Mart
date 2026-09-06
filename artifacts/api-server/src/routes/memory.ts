@@ -177,10 +177,10 @@ router.post("/memory/upload", async (req: MemoryRequest, res: MemoryResponse) =>
     formData.append("reqtype", "fileupload");
     formData.append("fileToUpload", new Blob([buffer]), "memory.png");
     
-    const uploadRes = await fetch("https://catbox.moe/user/api.php", {
+    const uploadRes = (await fetch("https://catbox.moe/user/api.php", {
       method: "POST",
-      body: formData,
-    });
+      body: formData as any,
+    })) as any;
     
     if (!uploadRes.ok) {
       throw new Error(`Upload failed with status ${uploadRes.status}`);
