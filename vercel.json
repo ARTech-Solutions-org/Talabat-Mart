@@ -6,12 +6,9 @@
   "functions": {
     "api/[...path].ts": {
       "maxDuration": 60
+    },
+    "api/memory/generate.ts": {
+      "maxDuration": 60
     }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  }
 }
