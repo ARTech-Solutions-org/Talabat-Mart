@@ -172,12 +172,17 @@ router.post("/memory/upload", async (req: MemoryRequest, res: MemoryResponse) =>
     }
     const data = imageBase64.replace(/^data:[^;]+;base64,/, "");
     const buffer = Buffer.from(data, "base64");
+    const apiKey = process.env.IMGBB_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ error: "IMGBB_API_KEY is not configured." });
+      return;
+    }
     
     const formData = new FormData();
-    formData.append("reqtype", "fileupload");
-    formData.append("fileToUpload", new Blob([buffer]), "memory.png");
+    formData.append("key", apiKey);
+    formData.append("image", data);
     
-    const uploadRes = (await fetch("https://catbox.moe/user/api.php", {
+    const uploadRes = (await fetch("https://api.imgbb.com/1/upload", {
       method: "POST",
       body: formData as any,
     })) as any;
@@ -186,10 +191,14 @@ router.post("/memory/upload", async (req: MemoryRequest, res: MemoryResponse) =>
       throw new Error(`Upload failed with status ${uploadRes.status}`);
     }
     
-    const url = await uploadRes.text();
-    res.json({ url });
+    const jsonRes = await uploadRes.json();
+    if (!jsonRes.data || !jsonRes.data.url) {
+      throw new Error("Invalid response from ImgBB");
+    }
+    
+    res.json({ url: jsonRes.data.url });
   } catch (error) {
-    req.log?.error({ err: error }, "Failed to upload image to catbox");
+    req.log?.error({ err: error }, "Failed to upload image to ImgBB");
     res.status(502).json({ error: "Could not upload image for QR code." });
   }
 });
