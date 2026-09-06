@@ -627,13 +627,13 @@ function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: generatedImage ?? photoDataUrl ?? demoPhoto }),
       });
-      if (!response.ok) throw new Error('Failed to upload image');
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Failed to upload image');
       setQrUrl(data.url);
       setSaved(true);
       setToast('Memory saved. Scan the QR code to download it.');
-    } catch (err) {
-      setToast('Failed to upload memory. Please try again.');
+    } catch (err: any) {
+      setToast(err.message || 'Failed to upload memory. Please try again.');
     } finally {
       setIsUploading(false);
     }

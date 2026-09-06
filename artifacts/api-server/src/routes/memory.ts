@@ -178,14 +178,14 @@ router.post("/memory/upload", async (req: MemoryRequest, res: MemoryResponse) =>
       return;
     }
     
-    const formData = new FormData();
-    formData.append("key", apiKey);
-    formData.append("image", data);
+    const searchParams = new URLSearchParams();
+    searchParams.append("key", apiKey);
+    searchParams.append("image", data);
     
-    const uploadRes = (await fetch("https://api.imgbb.com/1/upload", {
+    const uploadRes: any = await fetch("https://api.imgbb.com/1/upload", {
       method: "POST",
-      body: formData as any,
-    })) as any;
+      body: searchParams,
+    });
     
     if (!uploadRes.ok) {
       throw new Error(`Upload failed with status ${uploadRes.status}`);
