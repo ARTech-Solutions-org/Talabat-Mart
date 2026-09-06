@@ -1,7 +1,7 @@
 {
   "version": 2,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm run vercel-build",
+  "buildCommand": "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/memory-booth run build",
   "outputDirectory": "artifacts/memory-booth/dist/public",
   "functions": {
     "api/[...path].ts": {
