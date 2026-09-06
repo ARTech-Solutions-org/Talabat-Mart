@@ -1,0 +1,1 @@
+- [Gemini image generation access](gemini-integration.md) — use the server-side user secret when managed Nano Banana access is unavailable.

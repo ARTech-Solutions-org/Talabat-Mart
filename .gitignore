@@ -1,0 +1,108 @@
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+
+# Dependencies & Package Managers
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+package-lock.json
+yarn.lock
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+!.env.template
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Production & Compiled Output
+dist/
+dist
+build/
+out/
+.output/
+tmp/
+out-tsc/
+*.tsbuildinfo
+.tsbuildinfo
+
+# Caches & Build Tool Temp Files
+.cache/
+.vite/
+.turbo/
+.swc/
+.parcel-cache/
+.rollup.cache
+/.sass-cache
+
+# Deployment & Platforms
+.vercel/
+.expo/
+.expo-shared/
+
+# Replit Environment & Artifacts
+.replit
+.replit/
+.replitignore
+replit.nix
+replit.md
+.replit-artifact/
+.upm/
+.local/
+.config/
+.breakpoints
+.ccls-cache/
+
+# Logs & Debugging
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+/libpeerconnection.log
+testem.log
+
+# Testing & Coverage
+coverage/
+/.nyc_output
+playwright-report/
+test-results/
+
+# IDEs, Editors & Workspaces
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# VS Code (preserve shared workspace configs, ignore user state)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Misc & Project Specific
+/connect.lock
+/typings
+.conversation/
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
