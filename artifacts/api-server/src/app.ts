@@ -33,7 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api", router);
 
 // Global error handler to ensure JSON responses instead of HTML for 500s
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: any, res: any, next: any) => {
   console.error("Express global error:", err);
   res.status(500).json({
     error: `Internal Server Error: ${err?.message ?? String(err)}`,
