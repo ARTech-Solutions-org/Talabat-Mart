@@ -1,5 +1,11 @@
 import app from "../../artifacts/api-server/src/app";
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 type VercelRequest = {
   url?: string;
   [key: string]: unknown;
