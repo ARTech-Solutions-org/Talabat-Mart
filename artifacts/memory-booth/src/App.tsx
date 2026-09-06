@@ -602,7 +602,9 @@ function Home() {
         throw new Error(`The generation service returned an invalid response (${response.status}).`);
       }
       if (!response.ok || !payload.imageBase64 || !payload.mimeType) {
-        throw new Error(payload.error ?? 'The memory could not be generated.');
+        throw new Error(
+          payload.error ?? `The generation service returned HTTP ${response.status}.`,
+        );
       }
       setGeneratedImage(`data:${payload.mimeType};base64,${payload.imageBase64}`);
       setProgress(100);

@@ -113,8 +113,19 @@ router.post(
         },
       )) as GeminiHttpResponse;
 
-      const responseText = await response.json().catch(() => null);
-      const payload = responseText ?? {};
+      let payload: Awaited<ReturnType<GeminiHttpResponse["json"]>>;
+      try {
+        payload = await response.json();
+      } catch {
+        req.log.error(
+          { status: response.status },
+          "Gemini returned an empty or invalid response",
+        );
+        res.status(502).json({
+          error: `Gemini returned an invalid response (HTTP ${response.status}).`,
+        });
+        return;
+      }
 
       if (!response.ok) {
         req.log.error(
@@ -143,7 +154,11 @@ router.post(
       });
     } catch (error) {
       req.log.error({ err: error }, "Unexpected image generation error");
-      res.status(502).json({ error: "The memory could not be generated right now." });
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Unknown generation service error.";
+      res.status(502).json({ error: `Generation service error: ${message}` });
     }
   },
 );
