@@ -3477,9 +3477,9 @@ body {
   .print-photo {
     position: absolute;
     top: 22.2%;
-    left: 12%;
-    width: 71.3%;
-    height: 64.4%;
+    left: 12.5%;
+    width: 70.4%;
+    height: 53.3%;
     object-fit: cover;
     z-index: 1;
   }
