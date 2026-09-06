@@ -575,10 +575,9 @@ function Home() {
   };
 
   const goGenerate = async () => {
-    setProgress(100);
     setGenerationError(null);
     setGeneratedImage(photoDataUrl ?? demoPhoto);
-    setStep('generating');
+    setStep('result');
   };
 
   useEffect(() => {
