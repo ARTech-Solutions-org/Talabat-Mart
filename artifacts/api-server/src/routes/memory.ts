@@ -117,7 +117,7 @@ router.post(
       try {
         payload = await response.json();
       } catch {
-        req.log.error(
+        req.log?.error(
           { status: response.status },
           "Gemini returned an empty or invalid response",
         );
@@ -128,7 +128,7 @@ router.post(
       }
 
       if (!response.ok) {
-        req.log.error(
+        req.log?.error(
           { status: response.status, message: payload.error?.message },
           "Gemini image generation failed",
         );
@@ -143,7 +143,7 @@ router.post(
         .find((part) => part.inlineData?.data);
 
       if (!generatedPart?.inlineData?.data) {
-        req.log.error("Gemini returned no image part");
+        req.log?.error("Gemini returned no image part");
         res.status(502).json({ error: "Nano Banana returned no image." });
         return;
       }
@@ -153,7 +153,7 @@ router.post(
         mimeType: generatedPart.inlineData.mimeType ?? "image/png",
       });
     } catch (error) {
-      req.log.error({ err: error }, "Unexpected image generation error");
+      req.log?.error({ err: error }, "Unexpected image generation error");
       const message =
         error instanceof Error && error.message
           ? error.message
