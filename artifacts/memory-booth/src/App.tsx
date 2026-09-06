@@ -408,11 +408,6 @@ function ResultStep({
 
   return (
     <>
-      <div 
-        style={{ position: 'fixed', top: 0, left: 0, width: '100px', height: '100px', zIndex: 9999, cursor: 'pointer' }} 
-        onClick={() => { window.print(); }}
-        title="Hidden Print Button"
-      />
       <main className="booth-main no-print">
         <section className="portrait-step-card result-screen" data-testid="step-result">
           <div className="result-topbar">
