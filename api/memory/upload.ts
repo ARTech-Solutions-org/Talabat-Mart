@@ -3,7 +3,14 @@
 
 declare const process: { env: Record<string, string | undefined> };
 
-export const config = { maxDuration: 60 };
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '20mb',
+    },
+    maxDuration: 60,
+  },
+};
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {

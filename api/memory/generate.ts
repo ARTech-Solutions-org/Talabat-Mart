@@ -3,7 +3,14 @@
 
 declare const process: { env: Record<string, string | undefined> };
 
-export const config = { maxDuration: 60 };
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '20mb',
+    },
+    maxDuration: 60,
+  },
+};
 
 const BASE_PROMPT = `Using the uploaded photo as the exact identity reference for both people, regenerate a photorealistic image of the same two individuals — preserve their facial identity, unique features, skin tone, and hairstyle so they remain clearly recognizable as the same people. Keep their original clothing colors and style unless the scene requires a natural adjustment. Maintain a warm, cinematic, editorial photography look with soft natural lighting, sharp focus on both faces, and a joyful, affectionate interaction between the two subjects (natural pose, genuine smile). Do not add any extra people. High detail, professional photo quality, 4K.`;
 
