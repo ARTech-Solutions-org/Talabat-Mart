@@ -1,7 +1,7 @@
 // Vercel Serverless Function — /api/memory/upload
-// Uploads image to ImgBB directly (CommonJS)
+// ESM module (api/package.json has "type": "module")
 
-module.exports.config = {
+export const config = {
   api: {
     bodyParser: {
       sizeLimit: '20mb',
@@ -10,7 +10,7 @@ module.exports.config = {
   },
 };
 
-async function handler(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -25,7 +25,6 @@ async function handler(req: any, res: any) {
     return res.status(400).json({ error: "Missing image data." });
   }
 
-  // Strip data URL prefix if present
   const data = imageBase64.replace(/^data:[^;]+;base64,/, "");
 
   try {
@@ -52,5 +51,3 @@ async function handler(req: any, res: any) {
     return res.status(502).json({ error: `Upload failed: ${err.message}` });
   }
 }
-
-module.exports.default = handler;
