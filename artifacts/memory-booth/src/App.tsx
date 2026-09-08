@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from 'react';
+import React, { useEffect, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
