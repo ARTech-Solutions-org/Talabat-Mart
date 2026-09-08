@@ -6,7 +6,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Check } from 'lucide-react';
+import { Check, AlertCircle } from 'lucide-react';
 import {
   Route,
   Switch,
@@ -448,6 +448,7 @@ function ResultStep({
   qrUrl,
   generatedImage,
   originalPhoto,
+  generationError,
   onSave,
   onPrint,
   onStartOver,
@@ -458,6 +459,7 @@ function ResultStep({
   qrUrl: string | null;
   generatedImage: string | null;
   originalPhoto: string | null;
+  generationError?: string | null;
   onSave: () => void;
   onPrint: () => void;
   onStartOver: () => void;
@@ -470,6 +472,13 @@ function ResultStep({
     <>
       <div className="booth-screen no-print" data-testid="step-result">
         <img src="/design-ref/frame7/bg.png" alt="" className="booth-bg" />
+
+        {generationError && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-[#5A1D28]/95 border border-[#E35205]/40 text-[#F5EEE4] px-6 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2.5 z-30 shadow-xl max-w-[92%] text-center">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-[#E35205]" />
+            <span className="truncate">AI: {generationError} (Demo preview used)</span>
+          </div>
+        )}
 
         <motion.img 
           src="/design-ref/frame7/logo.png" 
@@ -628,7 +637,9 @@ function Home() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [saved, setSaved] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; isError?: boolean } | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const showToast = (message: string, isError = false) => setToast({ message, isError });
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -685,7 +696,7 @@ function Home() {
     }
     setCountdown(null);
     setPhotoMode('capture');
-    setToast('Photo captured!');
+    showToast('Photo captured!');
   }, [countdown]);
 
   // Auto-advance after capture
@@ -729,11 +740,12 @@ function Home() {
   // Toast dismiss
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2800);
+    const t = setTimeout(() => setToast(null), toast.isError ? 6500 : 3200);
     return () => clearTimeout(t);
   }, [toast]);
 
   const goGenerate = async () => {
+    setGenerationError(null);
     setStep('generating');
     setProgress(0);
     setIsGenerating(true);
@@ -768,7 +780,9 @@ function Home() {
         }
       } catch (error: any) {
         console.error('Generation failed:', error);
-        setToast(error.message || 'Failed to generate. Using demo image.');
+        const errMsg = error.message || 'Failed to generate image.';
+        setGenerationError(errMsg);
+        showToast(errMsg, true);
         setGeneratedImage(demoGeneratedPhoto);
       } finally {
         setIsGenerating(false);
@@ -793,6 +807,7 @@ function Home() {
     setProgress(0);
     setSaved(false);
     setGeneratedImage(null);
+    setGenerationError(null);
     setQrUrl(null);
     setIsUploading(false);
   };
@@ -805,7 +820,7 @@ function Home() {
       setFileName(file.name);
       setPhotoDataUrl(typeof reader.result === 'string' ? reader.result : null);
       setPhotoMode('upload');
-      setToast('Photo uploaded!');
+      showToast('Photo uploaded!');
     };
     reader.readAsDataURL(file);
   };
@@ -827,9 +842,9 @@ function Home() {
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setQrUrl(data.url);
       setSaved(true);
-      setToast('Memory saved! Scan to download.');
+      showToast('Memory saved! Scan to download.');
     } catch (err: any) {
-      setToast(err.message || 'Upload failed.');
+      showToast(err.message || 'Upload failed.', true);
     } finally {
       setIsUploading(false);
     }
@@ -880,7 +895,7 @@ function Home() {
               cameraVideoRef={cameraVideoRef}
               cameraReady={Boolean(cameraStream)}
               cameraError={cameraError}
-              onChooseDemo={() => { setFileName(null); setPhotoDataUrl(null); setPhotoMode('demo'); setToast('Demo loaded.'); }}
+              onChooseDemo={() => { setFileName(null); setPhotoDataUrl(null); setPhotoMode('demo'); showToast('Demo loaded.'); }}
               onUpload={handleUpload}
               onCapture={() => setCountdown(3)}
             />
@@ -901,8 +916,9 @@ function Home() {
               qrUrl={qrUrl}
               generatedImage={generatedImage}
               originalPhoto={photoDataUrl}
+              generationError={generationError}
               onSave={handleSave}
-              onPrint={() => { window.print(); setToast('Print dialog opened.'); }}
+              onPrint={() => { window.print(); showToast('Print dialog opened.'); }}
               onStartOver={startOver}
               onCloseQR={() => setSaved(false)}
             />
@@ -911,8 +927,9 @@ function Home() {
       </AnimatePresence>
 
       {toast && (
-        <div className="booth-toast" role="status" data-testid="status-toast">
-          <Check size={16} /> {toast}
+        <div className={`booth-toast ${toast.isError ? 'booth-toast-error' : ''}`} role="status" data-testid="status-toast">
+          {toast.isError ? <AlertCircle size={16} className="text-[#FF8A65] flex-shrink-0" /> : <Check size={16} className="flex-shrink-0" />}
+          <span>{toast.message}</span>
         </div>
       )}
     </div>
