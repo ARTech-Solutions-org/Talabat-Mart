@@ -25,9 +25,9 @@ const LOCATION_PROMPTS = {
 
 // Candidate models in order of priority
 const CANDIDATE_MODELS = [
-  'gemini-2.5-flash-image',
-  'gemini-2.0-flash-preview-image-generation',
   'gemini-2.0-flash-exp',
+  'gemini-2.0-flash-preview-image-generation',
+  'gemini-2.5-flash-image',
 ];
 
 export default async function handler(req, res) {
@@ -110,14 +110,7 @@ export default async function handler(req, res) {
         console.warn(`Model ${model} failed (${response.status}): ${errorMsg}`);
         lastError = `[${model}] ${errorMsg}`;
 
-        // If model not found or modalities unsupported, try next model
-        if (response.status === 404 || response.status === 400) {
-          continue;
-        }
-        // If quota exceeded or permission denied, stop and report
-        if (response.status === 403 || response.status === 429) {
-          return res.status(502).json({ error: `Gemini API quota/permission error: ${errorMsg}` });
-        }
+        // Continue and try next candidate model
         continue;
       }
 
@@ -158,7 +151,14 @@ export default async function handler(req, res) {
 
   // All candidate models failed
   console.error('All candidate Gemini models failed. Last error:', lastError);
+
+  let userFriendlyError = lastError || 'Gemini returned no image.';
+  if (lastError && (lastError.includes('limit: 0') || lastError.includes('quota') || lastError.includes('429'))) {
+    userFriendlyError = 'Google AI Studio quota limit is 0 on free tier for image generation. Please link a billing account to your Google Cloud project to activate quota.';
+  }
+
   return res.status(502).json({
-    error: `Image generation failed: ${lastError || 'Gemini returned no image.'}`,
+    error: userFriendlyError,
+    details: lastError,
   });
 }
