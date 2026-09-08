@@ -21,10 +21,8 @@ type Experience = 'younger' | 'older';
 type LocationChoice = 'classroom' | 'school-yard' | 'lab-room' | 'library' | 'graduation' | 'trip';
 type PhotoMode = 'demo' | 'upload' | 'capture';
 
-const demoPhoto =
-  'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=1200&q=85';
-const demoGeneratedPhoto =
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1200&q=85';
+const demoPhoto = '/sample-original.png';
+const demoGeneratedPhoto = '/sample-ai.png';
 
 // ─── Shared Utility for Absolute Layouts ──────────────────────────────────
 const pos = (x: number, y: number, w: number, h: number) => ({
@@ -564,11 +562,12 @@ function ResultStep({
         </motion.button>
       </div>
 
-      {/* Print area */}
+      {/* Print area (152mm x 102mm Landscape) */}
       <div className="print-area">
         <div className="print-container">
-          <img src={aiImage} alt="Memory" className="print-photo" />
-          <img src="/frame-transparent.png" alt="Frame" className="print-frame-overlay" />
+          <img src={origImage} alt="Original Photo" className="print-photo-original" />
+          <img src={aiImage} alt="AI Memory" className="print-photo-ai" />
+          <img src="/print-frame-landscape.png" alt="Frame" className="print-frame-overlay" />
         </div>
       </div>
 
@@ -590,38 +589,87 @@ function ResultStep({
 
 // ─── Canvas framing helper ────────────────────────────────────────────────
 
-const createFramedImageBase64 = (rawBase64: string): Promise<string> => {
+const createFramedImageBase64 = (origUrl: string, aiUrl: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const frameImg = new Image();
     frameImg.crossOrigin = 'anonymous';
     frameImg.onload = () => {
-      const photoImg = new Image();
-      photoImg.crossOrigin = 'anonymous';
-      photoImg.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 1080;
-        canvas.height = 1350;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject(new Error('No canvas context'));
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, 1080, 1350);
-        const targetX = 150, targetY = 277, targetW = 780, targetH = 740;
-        const imgRatio = photoImg.width / photoImg.height;
-        const targetRatio = targetW / targetH;
-        let drawW = photoImg.width, drawH = photoImg.height, sx = 0, sy = 0;
-        if (imgRatio > targetRatio) { drawW = photoImg.height * targetRatio; sx = (photoImg.width - drawW) / 2; }
-        else { drawH = photoImg.width / targetRatio; sy = (photoImg.height - drawH) / 2; }
-        ctx.save();
-        ctx.drawImage(photoImg, sx, sy, drawW, drawH, targetX, targetY, targetW, targetH);
-        ctx.restore();
-        ctx.drawImage(frameImg, 0, 0, 1080, 1350);
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      const origPhotoImg = new Image();
+      origPhotoImg.crossOrigin = 'anonymous';
+      origPhotoImg.onload = () => {
+        const aiPhotoImg = new Image();
+        aiPhotoImg.crossOrigin = 'anonymous';
+        aiPhotoImg.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2471;
+            canvas.height = 1658;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('No canvas context'));
+
+            // 1. Background fill
+            ctx.fillStyle = '#F7EEE3';
+            ctx.fillRect(0, 0, 2471, 1658);
+
+            // Rounded rect cover helper
+            const drawCoverInRoundedRect = (
+              img: HTMLImageElement,
+              x: number,
+              y: number,
+              w: number,
+              h: number,
+              r: number
+            ) => {
+              ctx.save();
+              ctx.beginPath();
+              if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(x, y, w, h, r);
+              } else {
+                ctx.moveTo(x + r, y);
+                ctx.arcTo(x + w, y, x + w, y + h, r);
+                ctx.arcTo(x + w, y + h, x, y + h, r);
+                ctx.arcTo(x, y + h, x, y, r);
+                ctx.arcTo(x, y, x + w, y, r);
+                ctx.closePath();
+              }
+              ctx.clip();
+
+              const imgRatio = img.width / img.height;
+              const targetRatio = w / h;
+              let sx = 0, sy = 0, sw = img.width, sh = img.height;
+              if (imgRatio > targetRatio) {
+                sw = img.height * targetRatio;
+                sx = (img.width - sw) / 2;
+              } else {
+                sh = img.width / targetRatio;
+                sy = (img.height - sh) / 2;
+              }
+              ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+              ctx.restore();
+            };
+
+            // 2. Original photo in Left slot (Green #17FF02 in Frame 8.svg: x=254, y=275, w=910, h=823, rx=83)
+            drawCoverInRoundedRect(origPhotoImg, 254, 275, 910, 823, 83);
+
+            // 3. AI photo in Right slot (Blue #001AFF in Frame 8.svg: x=1307, y=275, w=910, h=823, rx=83)
+            drawCoverInRoundedRect(aiPhotoImg, 1307, 275, 910, 823, 83);
+
+            // 4. Landscape frame overlay with header logo, labels, and bottom ribbon
+            ctx.drawImage(frameImg, 0, 0, 2471, 1658);
+
+            resolve(canvas.toDataURL('image/jpeg', 0.95));
+          } catch (err) {
+            reject(err);
+          }
+        };
+        aiPhotoImg.onerror = () => reject(new Error('Failed to load AI generated photo for frame'));
+        aiPhotoImg.src = aiUrl;
       };
-      photoImg.onerror = reject;
-      photoImg.src = rawBase64;
+      origPhotoImg.onerror = () => reject(new Error('Failed to load original photo for frame'));
+      origPhotoImg.src = origUrl;
     };
-    frameImg.onerror = reject;
-    frameImg.src = '/frame-transparent.png';
+    frameImg.onerror = () => reject(new Error('Failed to load print frame overlay'));
+    frameImg.src = '/print-frame-landscape.png';
   });
 };
 
@@ -829,8 +877,9 @@ function Home() {
     if (qrUrl) { setSaved(true); return; }
     setIsUploading(true);
     try {
-      const rawImg = generatedImage ?? photoDataUrl ?? demoGeneratedPhoto;
-      const framedBase64 = await createFramedImageBase64(rawImg);
+      const rawAiImg = generatedImage ?? demoGeneratedPhoto;
+      const rawOrigImg = photoDataUrl ?? demoPhoto;
+      const framedBase64 = await createFramedImageBase64(rawOrigImg, rawAiImg);
       const res = await fetch('/api/memory/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

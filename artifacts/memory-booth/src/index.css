@@ -1021,51 +1021,72 @@ input  { font: inherit; }
 
 @media print {
   @page {
-    size: 102mm 152mm;
+    size: 152mm 102mm;
     margin: 0;
   }
 
   html, body {
     margin: 0 !important;
     padding: 0 !important;
-    width: 102mm;
-    height: 152mm;
+    width: 152mm !important;
+    height: 102mm !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .no-print { display: none !important; }
 
   .print-area {
-    display: block;
-    position: relative;
-    width: 102mm;
-    height: 152mm;
-    overflow: hidden;
+    display: block !important;
+    position: relative !important;
+    width: 152mm !important;
+    height: 102mm !important;
+    overflow: hidden !important;
+    background-color: #F7EEE3 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .print-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
+    width: 152mm !important;
+    height: 102mm !important;
+    position: relative !important;
+    overflow: hidden !important;
   }
 
-  .print-photo {
-    position: absolute;
-    top: 20.5%;
-    left: 13.9%;
-    width: 72.2%;
-    height: 54.8%;
-    object-fit: cover;
-    z-index: 1;
+  /* Left slot: Original Photo (Green in Frame 8.svg: x=254, y=275, w=910, h=823, rx=83) */
+  .print-photo-original {
+    position: absolute !important;
+    top: calc(275 / 1658 * 100%) !important;
+    left: calc(254 / 2471 * 100%) !important;
+    width: calc(910 / 2471 * 100%) !important;
+    height: calc(823 / 1658 * 100%) !important;
+    border-radius: calc(83 / 1658 * 102mm) !important;
+    object-fit: cover !important;
+    z-index: 1 !important;
+  }
+
+  /* Right slot: AI Photo (Blue in Frame 8.svg: x=1307, y=275, w=910, h=823, rx=83) */
+  .print-photo-ai {
+    position: absolute !important;
+    top: calc(275 / 1658 * 100%) !important;
+    left: calc(1307 / 2471 * 100%) !important;
+    width: calc(910 / 2471 * 100%) !important;
+    height: calc(823 / 1658 * 100%) !important;
+    border-radius: calc(83 / 1658 * 102mm) !important;
+    object-fit: cover !important;
+    z-index: 1 !important;
   }
 
   .print-frame-overlay {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-    pointer-events: none;
-    object-fit: fill; /* Stretches the frame to exactly 102x152mm so the hole aligns perfectly with percentages */
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 2 !important;
+    pointer-events: none !important;
+    object-fit: fill !important;
   }
 }
 
