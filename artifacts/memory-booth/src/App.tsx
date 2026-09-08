@@ -697,28 +697,34 @@ function Home() {
 
   // Generation progress
   const [isGenerating, setIsGenerating] = useState(false);
+  // Tracks that generation was explicitly started (prevents premature completion)
+  const generationStartedRef = React.useRef(false);
 
   useEffect(() => {
     if (step !== 'generating') {
-      setIsGenerating(false);
+      generationStartedRef.current = false;
       return;
     }
-    // Increment progress smoothly up to 95% while waiting for API
+    // Increment progress smoothly up to 92% while waiting for API
     const t = setInterval(() => setProgress((p) => {
-      if (p >= 95) return 95;
-      return p + (95 - p) * 0.02; // Ease towards 95% very smoothly
-    }), 50);
+      if (p >= 92) return 92;
+      return p + (92 - p) * 0.015; // Very smooth ease towards 92%
+    }), 60);
     return () => clearInterval(t);
   }, [step]);
 
   useEffect(() => {
-    // When step is generating and it's NO LONGER generating (meaning API finished)
-    if (step === 'generating' && !isGenerating && progress > 0) {
+    // Only advance when generation was started AND has now finished
+    if (
+      step === 'generating' &&
+      generationStartedRef.current === true &&
+      !isGenerating
+    ) {
       setProgress(100);
-      const t = setTimeout(() => setStep('result'), 600);
+      const t = setTimeout(() => setStep('result'), 800);
       return () => clearTimeout(t);
     }
-  }, [isGenerating, step, progress]);
+  }, [isGenerating, step]);
 
   // Toast dismiss
   useEffect(() => {
@@ -731,6 +737,7 @@ function Home() {
     setStep('generating');
     setProgress(0);
     setIsGenerating(true);
+    generationStartedRef.current = true;
 
     if (photoDataUrl) {
       try {

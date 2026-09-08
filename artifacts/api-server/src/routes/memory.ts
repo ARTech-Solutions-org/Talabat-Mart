@@ -37,17 +37,29 @@ type GeminiHttpResponse = {
 };
 
 const experiencePrompts = {
-  younger:
-    "Make the parent look the same age as the child while keeping the parent's identity recognizable.",
-  older:
-    "Make the child look the same age as the parent while keeping the child's identity recognizable.",
+  younger: {
+    headline: "Imagine the parent as a child the same age as their child in this photo.",
+    detail: [
+      "Age down the PARENT/ADULT only: make their face, hair, skin, and body proportions look like they are the same young age as the child.",
+      "The CHILD must remain completely unchanged — same age, same face, same size.",
+      "Both people must still look like the same individuals — preserve facial features, hairstyle character, and relationship dynamic.",
+    ],
+  },
+  older: {
+    headline: "Imagine the child grown up to the same age as their parent in this photo.",
+    detail: [
+      "Age up the CHILD only: make their face, hair, skin, and body proportions look like they are the same adult age as the parent.",
+      "The PARENT/ADULT must remain completely unchanged — same age, same face, same size.",
+      "Both people must still look like the same individuals — preserve facial features, hairstyle character, and relationship dynamic.",
+    ],
+  },
 } as const;
 
 const locationPrompts = {
-  classroom: "a warm, lived-in classroom with soft morning light and chalk details",
-  "school-yard": "a sunny school yard with warm afternoon light and gentle greenery",
-  "reading-room": "a cozy reading room with tall shelves and soft window light",
-  "sunny-garden": "a bright family garden with natural greenery and golden light",
+  classroom: "a warm, cozy Egyptian classroom from the 1990s — old wooden desks, a chalkboard covered in Arabic writing, soft dusty morning light through tall windows, a warm honey-yellow and tan color palette",
+  "school-yard": "a sunny Egyptian school yard — bright afternoon sunlight, children playing in the background, trees casting dappled shade, warm amber and green tones",
+  "reading-room": "an intimate reading room — tall wooden bookshelves lined with Arabic and English books, a small desk lamp casting warm golden light, dust motes in a soft beam of sunlight",
+  "sunny-garden": "a lush home garden with bright natural sunlight — blooming flowers, green hedges, golden hour glow, soft shadows on the grass, warm and family-friendly",
 } as const;
 
 router.post(
@@ -78,18 +90,25 @@ router.post(
       }
       : null;
 
+    const expPrompt = experiencePrompts[experience];
+    const locPrompt = locationPrompts[location];
+
     const prompt = [
-      "Edit this family photo into a believable keepsake memory.",
-      experiencePrompts[experience],
-      `Change the background to ${locationPrompts[location]}.`,
-      "Non-negotiable edit rules:",
-      "- Preserve the exact pose, body position, hand placement, camera angle, crop, composition, and framing.",
-      "- Keep both people's facial identity, expression, clothing silhouette, and relationship recognizable.",
-      "- Do not move, add, remove, duplicate, or reshape either person.",
-      "- Change only the requested age story and the background.",
-      "- Make the edit photorealistic, warm, natural, and family-safe.",
-      "Return only the edited image.",
+      "You are a professional photo editor creating a heartfelt keepsake memory photo.",
+      "",
+      `MEMORY EXPERIENCE: ${expPrompt.headline}`,
+      ...expPrompt.detail.map(d => `- ${d}`),
+      "",
+      `BACKGROUND: Replace the background with ${locPrompt}.`,
+      "",
+      "STRICT NON-NEGOTIABLE RULES:",
+      "- Preserve the EXACT pose, body position, hand placement, camera angle, crop, composition, and framing — do not alter these at all.",
+      "- Do NOT move, add, remove, duplicate, flip, or reshape either person.",
+      "- Do NOT change clothing, accessories, or any other aspect beyond what is specified above.",
+      "- The result must be photorealistic, warm, natural, and family-safe.",
+      "- Output ONLY the edited image with no extra text or commentary.",
     ].join("\n");
+
 
     const parts = imagePart
       ? [{ text: prompt }, imagePart]
