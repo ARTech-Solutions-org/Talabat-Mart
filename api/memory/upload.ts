@@ -1,36 +1,47 @@
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+// Vercel Serverless Function — /api/memory/upload
+// Uploads image to ImgBB directly (no Express dependency)
 
-type VercelRequest = {
-  url?: string;
-  [key: string]: unknown;
-};
+export const config = { maxDuration: 60 };
 
-let expressHandler: any = null;
+export default async function handler(req: any, res: any) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-export default async function handler(req: VercelRequest, res: any) {
+  const apiKey = process.env.IMGBB_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: "IMGBB_API_KEY is not configured." });
+  }
+
+  const { imageBase64 } = req.body ?? {};
+  if (!imageBase64) {
+    return res.status(400).json({ error: "Missing image data." });
+  }
+
+  // Strip data URL prefix if present
+  const data = imageBase64.replace(/^data:[^;]+;base64,/, "");
+
   try {
-    if (!expressHandler) {
-      const appModule = await import("../../artifacts/api-server/src/app.js");
-      expressHandler = appModule.default || appModule;
-      if (typeof expressHandler !== "function") {
-        throw new Error(`expressHandler is not a function, it is: ${typeof expressHandler}`);
-      }
-    }
+    const formData = new FormData();
+    formData.append("key", apiKey);
+    formData.append("image", data);
 
-    if (!req.url || req.url === "/" || req.url === "/memory/upload") {
-      req.url = "/api/memory/upload";
-    } else if (!req.url.startsWith("/api")) {
-      req.url = `/api${req.url.startsWith("/") ? req.url : `/${req.url}`}`;
-    }
-
-    return expressHandler(req, res);
-  } catch (error: any) {
-    res.status(500).json({
-      error: `Vercel Startup Error: ${error.message ?? String(error)}`,
+    const uploadRes = await fetch("https://api.imgbb.com/1/upload", {
+      method: "POST",
+      body: formData,
     });
+
+    if (!uploadRes.ok) {
+      throw new Error(`ImgBB upload failed with status ${uploadRes.status}`);
+    }
+
+    const json: any = await uploadRes.json();
+    if (!json.data?.url) {
+      throw new Error("Invalid response from ImgBB");
+    }
+
+    return res.status(200).json({ url: json.data.url });
+  } catch (err: any) {
+    return res.status(502).json({ error: `Upload failed: ${err.message}` });
   }
 }
