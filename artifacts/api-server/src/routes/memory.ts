@@ -6,7 +6,7 @@ type GenerateMemoryBody = {
   imageBase64?: string;
   mimeType?: string;
   experience?: "younger" | "older";
-  location?: "classroom" | "school-yard" | "reading-room" | "sunny-garden";
+  location?: "classroom" | "school-yard" | "lab-room" | "library" | "graduation" | "trip";
 };
 
 type MemoryRequest = {
@@ -36,31 +36,31 @@ type GeminiHttpResponse = {
   }>;
 };
 
-const experiencePrompts = {
-  younger: {
-    headline: "Imagine the parent as a child the same age as their child in this photo.",
-    detail: [
-      "Age down the PARENT/ADULT only: make their face, hair, skin, and body proportions look like they are the same young age as the child.",
-      "The CHILD must remain completely unchanged — same age, same face, same size.",
-      "Both people must still look like the same individuals — preserve facial features, hairstyle character, and relationship dynamic.",
-    ],
-  },
-  older: {
-    headline: "Imagine the child grown up to the same age as their parent in this photo.",
-    detail: [
-      "Age up the CHILD only: make their face, hair, skin, and body proportions look like they are the same adult age as the parent.",
-      "The PARENT/ADULT must remain completely unchanged — same age, same face, same size.",
-      "Both people must still look like the same individuals — preserve facial features, hairstyle character, and relationship dynamic.",
-    ],
-  },
-} as const;
+// ─── Prompt Building Blocks ────────────────────────────────────────────────
 
-const locationPrompts = {
-  classroom: "a warm, cozy Egyptian classroom from the 1990s — old wooden desks, a chalkboard covered in Arabic writing, soft dusty morning light through tall windows, a warm honey-yellow and tan color palette",
-  "school-yard": "a sunny Egyptian school yard — bright afternoon sunlight, children playing in the background, trees casting dappled shade, warm amber and green tones",
-  "reading-room": "an intimate reading room — tall wooden bookshelves lined with Arabic and English books, a small desk lamp casting warm golden light, dust motes in a soft beam of sunlight",
-  "sunny-garden": "a lush home garden with bright natural sunlight — blooming flowers, green hedges, golden hour glow, soft shadows on the grass, warm and family-friendly",
-} as const;
+const BASE_PROMPT = `Using the uploaded photo as the exact identity reference for both people, regenerate a photorealistic image of the same two individuals — preserve their facial identity, unique features, skin tone, and hairstyle so they remain clearly recognizable as the same people. Keep their original clothing colors and style unless the scene requires a natural adjustment. Maintain a warm, cinematic, editorial photography look with soft natural lighting, sharp focus on both faces, and a joyful, affectionate interaction between the two subjects (natural pose, genuine smile). Do not add any extra people. High detail, professional photo quality, 4K.`;
+
+const EXPERIENCE_PROMPTS: Record<NonNullable<GenerateMemoryBody["experience"]>, string> = {
+  younger: `Age transformation: keep the child's apparent age exactly the same as in the original photo. Reduce the parent's apparent age by approximately 15–20 years — smoother skin, fuller and darker hair (remove gray if present), more youthful facial structure — while keeping the parent clearly recognizable as the same person (same face shape, eyes, nose, smile). The parent should now look youthful, energetic, close in age to a young adult, standing/sitting naturally next to the child.`,
+
+  older: `Age transformation: age the child up to look like a young adult / recent graduate, approximately 20–24 years old — mature facial proportions, adult height and posture — while clearly preserving the child's original facial identity (same eyes, face shape, smile, hair color/texture, just matured). Simultaneously reduce the parent's apparent age by approximately 10–15 years — smoother skin, more youthful hair and posture — while keeping the parent clearly recognizable as the same person. The goal is for the two subjects to now appear close in age to each other, like siblings or peers, while still visibly being the same two people from the original photo.`,
+};
+
+const LOCATION_PROMPTS: Record<NonNullable<GenerateMemoryBody["location"]>, string> = {
+  classroom: `Place both subjects inside a bright modern classroom: orange accent wall, large whiteboard behind them, wooden desks and bookshelves, soft warm daylight streaming through a window, cozy education-brand aesthetic.`,
+
+  "school-yard": `Place both subjects outdoors in a school yard at golden-hour sunset: school building and fence softly blurred in the background, warm backlit sun flare, basketball hoop visible, nostalgic warm orange tones.`,
+
+  "lab-room": `Place both subjects in a science lab room: glass beakers and test tubes with amber liquid on the bench beside them, blurred lab equipment and posters in the background, bright clinical lighting mixed with warm accents.`,
+
+  library: `Place both subjects standing in a long library aisle: tall orange bookshelves lining both sides, bright fluorescent ceiling lights, glossy reflective floor, deep symmetrical perspective toward the background.`,
+
+  graduation: `Place both subjects in a graduation-ceremony atmosphere: soft bokeh crowd background, confetti and a graduation cap tossed in the air around them, celebratory warm lighting, festive joyful mood.`,
+
+  trip: `Place both subjects outdoors at the Giza Pyramids in Egypt during golden sunset: pyramids silhouetted in the warm-toned desert background, soft sand foreground, travel-photography look with warm orange/brown color grading.`,
+};
+
+const NEGATIVE_PROMPT = `no extra people, no text overlays, no watermarks, no distorted faces, no unrealistic proportions`;
 
 router.post(
   "/memory/generate",
@@ -68,7 +68,7 @@ router.post(
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       res.status(503).json({
-        error: "Nano Banana is not configured. Add GEMINI_API_KEY to continue.",
+        error: "Gemini API key is not configured. Add GEMINI_API_KEY to continue.",
       });
       return;
     }
@@ -81,6 +81,14 @@ router.post(
       return;
     }
 
+    const experiencePrompt = EXPERIENCE_PROMPTS[experience];
+    const locationPrompt = LOCATION_PROMPTS[location];
+
+    if (!experiencePrompt || !locationPrompt) {
+      res.status(400).json({ error: "Invalid experience or location choice." });
+      return;
+    }
+
     const imagePart = imageBase64
       ? {
         inlineData: {
@@ -90,25 +98,13 @@ router.post(
       }
       : null;
 
-    const expPrompt = experiencePrompts[experience];
-    const locPrompt = locationPrompts[location];
-
+    // Combine the three prompt blocks as specified
     const prompt = [
-      "You are a professional photo editor creating a heartfelt keepsake memory photo.",
-      "",
-      `MEMORY EXPERIENCE: ${expPrompt.headline}`,
-      ...expPrompt.detail.map(d => `- ${d}`),
-      "",
-      `BACKGROUND: Replace the background with ${locPrompt}.`,
-      "",
-      "STRICT NON-NEGOTIABLE RULES:",
-      "- Preserve the EXACT pose, body position, hand placement, camera angle, crop, composition, and framing — do not alter these at all.",
-      "- Do NOT move, add, remove, duplicate, flip, or reshape either person.",
-      "- Do NOT change clothing, accessories, or any other aspect beyond what is specified above.",
-      "- The result must be photorealistic, warm, natural, and family-safe.",
-      "- Output ONLY the edited image with no extra text or commentary.",
-    ].join("\n");
-
+      BASE_PROMPT,
+      experiencePrompt,
+      locationPrompt,
+      `Negative: ${NEGATIVE_PROMPT}`,
+    ].join("\n\n");
 
     const parts = imagePart
       ? [{ text: prompt }, imagePart]
