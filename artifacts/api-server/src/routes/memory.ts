@@ -107,12 +107,12 @@ router.post(
     ].join("\n\n");
 
     const parts = imagePart
-      ? [{ text: prompt }, imagePart]
+      ? [imagePart, { text: prompt }]
       : [{ text: `${prompt}\nThere is no source photo for this demo; create a warm illustrative sample with two people in a locked portrait composition.` }];
 
     try {
       const response = (await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent",
         {
           method: "POST",
           headers: {
@@ -122,7 +122,7 @@ router.post(
           body: JSON.stringify({
             contents: [{ role: "user", parts }],
             generationConfig: {
-              responseModalities: ["IMAGE"],
+              responseModalities: ["TEXT", "IMAGE"],
             },
           }),
         },
