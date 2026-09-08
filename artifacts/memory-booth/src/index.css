@@ -381,20 +381,16 @@
     /* sits in front of content */
   }
 
-  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
   .active-elevate:active:not(.no-default-active-elevate)::after {
     background-color: var(--elevate-1);
   }
 
-  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
   .active-elevate-2:active:not(.no-default-active-elevate)::after {
     background-color: var(--elevate-2);
   }
 
   /* If there's a 1px border, adjust the inset so that it covers that parent's border */
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
   .border.active-elevate:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
@@ -798,28 +794,23 @@ input  { font: inherit; }
 
 /* Loading bar sprite */
 .gen-bar-sprite {
-  position: absolute;
-  top: 1531px;
-  left: 236px;
-  width: 602px;
-  height: 77px;
+  width: 100%;
+  height: 100%;
   background-image: url('/design-ref/loading-bar.svg');
-  background-size: 1244px 194px;
+  background-size: 206.644% 251.948%;
   z-index: 2;
+  animation: pulse-bar 2s infinite ease-in-out;
 }
 
-.gen-bar-sprite.state-1 {
-  background-position: 0 0;
+@keyframes pulse-bar {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
 }
-.gen-bar-sprite.state-2 {
-  background-position: -642px 0;
-}
-.gen-bar-sprite.state-3 {
-  background-position: 0 -117px;
-}
-.gen-bar-sprite.state-4 {
-  background-position: -642px -117px;
-}
+
+.gen-bar-sprite.state-1 { background-position: 0% 0%; }
+.gen-bar-sprite.state-2 { background-position: 100% 0%; }
+.gen-bar-sprite.state-3 { background-position: 0% 100%; }
+.gen-bar-sprite.state-4 { background-position: 100% 100%; }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    Screen 7 â€” Result
@@ -1067,4 +1058,23 @@ input  { font: inherit; }
     pointer-events: none;
     object-fit: fill; /* Stretches the frame to exactly 102x152mm so the hole aligns perfectly with percentages */
   }
+}
+
+/* ─── Global Animation Upgrades ────────────────────────────────────────── */
+
+/* Interactive Glow & Scale Effects for transparent touch targets */
+.booth-tap-zone, .exp-card, .loc-card, .cam-ctrl-btn, .cam-shutter, .result-action-btn, .result-restart-btn {
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.booth-tap-zone:hover, .exp-card:hover, .loc-card:hover, .cam-ctrl-btn:hover, .cam-shutter:hover, .result-action-btn:hover, .result-restart-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.4) !important;
+  transform: scale(1.03) !important;
+}
+
+.booth-tap-zone:active, .exp-card:active, .loc-card:active, .cam-ctrl-btn:active, .cam-shutter:active, .result-action-btn:active, .result-restart-btn:active {
+  background: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2) !important;
+  transform: scale(0.96) !important;
 }

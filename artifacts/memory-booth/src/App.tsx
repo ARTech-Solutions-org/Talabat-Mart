@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -25,24 +26,75 @@ const demoPhoto =
 const demoGeneratedPhoto =
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1200&q=85';
 
+// ─── Shared Utility for Absolute Layouts ──────────────────────────────────
+const pos = (x: number, y: number, w: number, h: number) => ({
+  position: 'absolute' as const,
+  left: `${(x / 1080) * 100}%`,
+  top: `${(y / 1920) * 100}%`,
+  width: `${(w / 1080) * 100}%`,
+  height: `${(h / 1920) * 100}%`,
+  objectFit: 'contain' as const,
+});
+
+// ─── Shared Page Transition Wrapper ────────────────────────────────────────
+
+function PageTransition({ children, stepKey }: { children: ReactNode; stepKey: string }) {
+  return (
+    <motion.div
+      key={stepKey}
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.02 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      style={{ position: 'absolute', inset: 0 }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 // ─── Screen 1 — Welcome ────────────────────────────────────────────────────
 
 function Welcome({ onStart }: { onStart: () => void }) {
   return (
     <div className="booth-screen" data-testid="display-welcome-art">
-      <img src="/design-ref/frame1/Frame%201.svg" alt="Welcome" className="booth-bg" />
-      <button
-        type="button"
-        className="booth-tap-zone"
-        onClick={onStart}
-        data-testid="button-start-memory"
-        aria-label="Tap anywhere to start"
+      <img src="/design-ref/frame1/bg%201.svg" alt="" className="booth-bg" />
+      <motion.img 
+        src="/design-ref/frame1/bag%201.svg" 
+        style={pos(560, 232, 520, 1094)}
+        initial={{ x: '50%', opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.1 }}
       />
+      <motion.img 
+        src="/design-ref/frame1/logo%201.svg" 
+        style={pos(271, 83, 538, 391)}
+        initial={{ y: '-50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.2 }}
+      />
+      <motion.img 
+        src="/design-ref/frame1/text%201.svg" 
+        style={pos(240, 497, 495, 843)}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.3 }}
+      />
+      <motion.div 
+        style={pos(289, 1584, 542, 163)}
+        initial={{ y: '50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.4 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={onStart}
+        className="cursor-pointer z-10"
+        data-testid="button-start-memory"
+      >
+        <img src="/design-ref/frame1/start%20button%201.svg" alt="Start" className="w-full h-full object-contain" />
+      </motion.div>
     </div>
   );
 }
-
-// ─── Screen 4 — Smile (3s then go to camera) ──────────────────────────────
 
 function SmileScreen({ onDone }: { onDone: () => void }) {
   useEffect(() => {
@@ -52,7 +104,39 @@ function SmileScreen({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="booth-screen" data-testid="step-smile">
-      <img src="/design-ref/Frame%204.svg" alt="" className="booth-bg" />
+      <img src="/design-ref/frame4/bg.png" alt="" className="booth-bg" />
+
+      <motion.img 
+        src="/design-ref/frame4/logo.png" 
+        style={pos(291, 107, 504, 108)}
+        initial={{ y: '-50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.1 }}
+      />
+
+      <motion.img 
+        src="/design-ref/frame4/char.png" 
+        style={pos(312, 360, 509, 788)}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', damping: 20, stiffness: 100, delay: 0.2 }}
+      />
+
+      <motion.img 
+        src="/design-ref/frame4/smile.png" 
+        style={pos(87, 1237, 913, 167)}
+        initial={{ y: '50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.3 }}
+      />
+
+      <motion.img 
+        src="/design-ref/frame4/stand%20inside%20text.png" 
+        style={pos(87, 1591, 907, 70)}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      />
     </div>
   );
 }
@@ -110,10 +194,41 @@ function PhotoStep({
             Allow camera access or upload a photo.
           </div>
         )}
-        {capturing && (
-          <span className="cam-countdown" data-testid="capture-countdown">{countdown}</span>
-        )}
+        <AnimatePresence>
+          {capturing && (
+            <motion.span
+              key={countdown}
+              initial={{ scale: 0.5, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 1.5, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              className="cam-countdown"
+              data-testid="capture-countdown"
+            >
+              {countdown}
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Camera Flash Effect */}
+      <AnimatePresence>
+        {countdown === 0 && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'white',
+              zIndex: 50,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Bottom UI text and icons are baked into the SVG frame */}
       <div className="cam-bottom">
@@ -147,39 +262,78 @@ function ExperienceStep({
 }) {
   return (
     <div className="booth-screen" data-testid="step-experience">
-      <img src="/design-ref/Frame%202.svg" alt="" className="booth-bg" />
+      <img src="/design-ref/frame2/bg.png" alt="" className="booth-bg" />
 
-      {/* Two side-by-side cards in the cream zone */}
-      <div className="exp-cards">
-        <button
-          type="button"
-          className={`exp-card ${value === 'younger' ? 'is-selected' : ''}`}
-          onClick={() => { onChange('younger'); onNext(); }}
-          data-testid="choice-make-parent-younger"
-          aria-label="Make parent younger"
-        />
+      <motion.img 
+        src="/design-ref/frame2/logo.png" 
+        style={pos(288, 92, 504, 108)}
+        initial={{ y: '-50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.1 }}
+      />
+      
+      <motion.img 
+        src="/design-ref/frame2/title.png" 
+        style={pos(88, 200, 907, 288)}
+        initial={{ y: '-50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.2 }}
+      />
 
-        <button
-          type="button"
-          className={`exp-card ${value === 'older' ? 'is-selected' : ''}`}
-          onClick={() => { onChange('older'); onNext(); }}
-          data-testid="choice-make-child-older"
-          aria-label="Make child older & parent younger"
-        />
-      </div>
+      <motion.button
+        type="button"
+        style={pos(47, 680, 490, 854)}
+        initial={{ x: '-20%', opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.3 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => { onChange('younger'); setTimeout(onNext, 300); }}
+        data-testid="choice-make-parent-younger"
+      >
+        <img src="/design-ref/frame2/photo1.png" alt="Younger" className="w-full h-full object-contain" />
+      </motion.button>
+
+      <motion.button
+        type="button"
+        style={pos(551, 680, 490, 854)}
+        initial={{ x: '20%', opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.4 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => { onChange('older'); setTimeout(onNext, 300); }}
+        data-testid="choice-make-child-older"
+      >
+        <img src="/design-ref/frame2/photo2.png" alt="Older" className="w-full h-full object-contain" />
+      </motion.button>
+
+      <motion.img 
+        src="/design-ref/frame2/text%20photo%201.png" 
+        style={pos(47, 1654, 486, 115)}
+        initial={{ y: '50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.5 }}
+      />
+
+      <motion.img 
+        src="/design-ref/frame2/text%20photo%202.png" 
+        style={pos(548, 1621, 500, 184)}
+        initial={{ y: '50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.6 }}
+      />
     </div>
   );
 }
 
 // ─── Screen 3 — Location ──────────────────────────────────────────────────
 
-const locationItems: { id: LocationChoice; img: string; alt: string }[] = [
-  { id: 'classroom',   img: '/design-ref/frame3/classroom.png',   alt: 'Classroom' },
-  { id: 'school-yard', img: '/design-ref/frame3/scool yard.png',  alt: 'School Yard' },
-  { id: 'lab-room',    img: '/design-ref/frame3/lab room.png',    alt: 'Lab Room' },
-  { id: 'library',     img: '/design-ref/frame3/library.png',     alt: 'Library' },
-  { id: 'graduation',  img: '/design-ref/frame3/gradiuation.png', alt: 'Graduation Ceremony' },
-  { id: 'trip',        img: '/design-ref/frame3/trip.png',        alt: 'Trip' },
+const locationItems: { id: LocationChoice; img: string; alt: string; x: number; y: number; w: number; h: number }[] = [
+  { id: 'classroom',   img: '/design-ref/frame3/classroom.png',   alt: 'Classroom',           x: 156, y: 613, w: 282, h: 347 },
+  { id: 'school-yard', img: '/design-ref/frame3/scool%20yard.png',  alt: 'School Yard',         x: 641, y: 613, w: 282, h: 347 },
+  { id: 'lab-room',    img: '/design-ref/frame3/lab%20room.png',    alt: 'Lab Room',            x: 156, y: 996, w: 282, h: 347 },
+  { id: 'library',     img: '/design-ref/frame3/library.png',     alt: 'Library',             x: 641, y: 999, w: 282, h: 347 },
+  { id: 'graduation',  img: '/design-ref/frame3/gradiuation.png', alt: 'Graduation Ceremony', x: 156, y: 1387, w: 282, h: 347 },
+  { id: 'trip',        img: '/design-ref/frame3/trip.png',        alt: 'Trip',                x: 641, y: 1400, w: 282, h: 347 },
 ];
 
 function LocationStep({
@@ -193,20 +347,39 @@ function LocationStep({
 }) {
   return (
     <div className="booth-screen" data-testid="step-location">
-      <img src="/design-ref/Frame%203.svg" alt="" className="booth-bg" />
+      <img src="/design-ref/frame3/bg.png" alt="" className="booth-bg" />
 
-      <div className="loc-grid">
-        {locationItems.map(({ id, alt }) => (
-          <button
-            key={id}
-            type="button"
-            className={`loc-card ${value === id ? 'is-selected' : ''}`}
-            onClick={() => { onChange(id); onNext(); }}
-            data-testid={`choice-location-${id}`}
-            aria-label={alt}
-          />
-        ))}
-      </div>
+      <motion.img 
+        src="/design-ref/frame3/logo.png" 
+        style={pos(289, 111, 504, 108)}
+        initial={{ y: '-50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.1 }}
+      />
+      
+      <motion.img 
+        src="/design-ref/frame3/title.png" 
+        style={pos(87, 224, 908, 281)}
+        initial={{ y: '-50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.2 }}
+      />
+
+      {locationItems.map(({ id, img, alt, x, y, w, h }, idx) => (
+        <motion.button
+          key={id}
+          type="button"
+          style={pos(x, y, w, h)}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', damping: 20, stiffness: 100, delay: 0.3 + idx * 0.1 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => { onChange(id); setTimeout(onNext, 300); }}
+          data-testid={`choice-location-${id}`}
+        >
+          <img src={img} alt={alt} className="w-full h-full object-contain" />
+        </motion.button>
+      ))}
     </div>
   );
 }
@@ -222,10 +395,47 @@ function GeneratingStep({ progress }: { progress: number }) {
 
   return (
     <div className="booth-screen" data-testid="step-generating">
-      <img src="/design-ref/Frame%206.svg" alt="" className="booth-bg" />
+      <img src="/design-ref/frame6/bg.png" alt="" className="booth-bg" />
 
-      {/* Loading bar sprite exactly placed over the SVG placeholder */}
-      <div className={`gen-bar-sprite state-${state}`} data-testid="status-generation-progress" />
+      <motion.img 
+        src="/design-ref/frame6/logo.png" 
+        style={pos(285, 108, 504, 108)}
+        initial={{ y: '-50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.1 }}
+      />
+      
+      <motion.img 
+        src="/design-ref/frame6/title.png" 
+        style={pos(83, 411, 907, 217)}
+        initial={{ y: '-50%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.2 }}
+      />
+
+      <motion.img 
+        src="/design-ref/frame6/item.png" 
+        style={pos(283, 709, 505, 563)}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1, y: [0, -20, 0] }}
+        transition={{ 
+          scale: { type: 'spring', damping: 20, stiffness: 100, delay: 0.3 },
+          opacity: { delay: 0.3 },
+          y: { repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0.5 }
+        }}
+      />
+
+      <motion.div 
+        style={{ ...pos(236, 1531, 602, 77), zIndex: 2 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
+      >
+        <div className="gen-bar-sprite state-1" style={{ position: 'absolute', inset: 0, opacity: 1 }} />
+        <div className="gen-bar-sprite state-2" style={{ position: 'absolute', inset: 0, opacity: progress >= 33 ? 1 : 0, transition: 'opacity 0.8s ease' }} />
+        <div className="gen-bar-sprite state-3" style={{ position: 'absolute', inset: 0, opacity: progress >= 66 ? 1 : 0, transition: 'opacity 0.8s ease' }} />
+        <div className="gen-bar-sprite state-4" style={{ position: 'absolute', inset: 0, opacity: progress >= 95 ? 1 : 0, transition: 'opacity 0.8s ease' }} />
+      </motion.div>
     </div>
   );
 }
@@ -259,45 +469,90 @@ function ResultStep({
   return (
     <>
       <div className="booth-screen no-print" data-testid="step-result">
-        <img src="/design-ref/Frame%207.svg" alt="" className="booth-bg" />
+        <img src="/design-ref/frame7/bg.png" alt="" className="booth-bg" />
 
-        {/* Photos — exact placement over SVG placeholders */}
-        <div className="result-photos">
-          <img src={origImage} alt="Original family photo" className="result-photo-orig" />
-          <img src={aiImage} alt="AI generated memory" className="result-photo-ai" />
+        <motion.img 
+          src="/design-ref/frame7/logo.png" 
+          style={pos(184, 125, 713, 153)}
+          initial={{ y: '-50%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.1 }}
+        />
+
+        {/* NO ANIMATION FOR THE PHOTOS */}
+        <div style={pos(51, 373, 463, 667)} className="rounded-[81px] overflow-hidden">
+          <img src={origImage} alt="Original family photo" className="w-full h-full object-cover" data-testid="image-original" />
         </div>
 
-        {/* ENJOY YOUR MEMORY title is baked into the SVG */}
-
-        {/* Buttons */}
-        <div className="result-actions">
-          <button
-            type="button"
-            className="result-action-btn"
-            onClick={onSave}
-            disabled={isUploading}
-            data-testid="button-save-memory"
-            aria-label="Save Memory"
-          >
-            {isUploading && <span className="result-uploading">Uploading…</span>}
-          </button>
-
-          <button
-            type="button"
-            className="result-action-btn"
-            onClick={onPrint}
-            data-testid="button-print-memory"
-            aria-label="Print the Memory"
-          />
-
-          <button
-            type="button"
-            className="result-restart-btn"
-            onClick={onStartOver}
-            data-testid="button-make-another"
-            aria-label="Make Another"
-          />
+        <div style={pos(589, 373, 463, 667)} className="rounded-[81px] overflow-hidden">
+          <img src={aiImage} alt="AI generated memory" className="w-full h-full object-cover" data-testid="image-generated" />
         </div>
+
+        <motion.img 
+          src="/design-ref/frame7/orginal%20photo%20textr.png" 
+          style={pos(55, 1087, 459, 109)}
+          initial={{ y: '50%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.2 }}
+        />
+
+        <motion.img 
+          src="/design-ref/frame7/ai%20genrated%20text.png" 
+          style={pos(592, 1087, 459, 109)}
+          initial={{ y: '50%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.3 }}
+        />
+
+        <motion.img 
+          src="/design-ref/frame7/enjoy%20your%20memory.png" 
+          style={pos(187, 1283, 706, 181)}
+          initial={{ y: '50%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.4 }}
+        />
+
+        <motion.button
+          type="button"
+          style={pos(337, 1548, 406, 122)}
+          whileTap={{ scale: 0.95 }}
+          onClick={onSave}
+          disabled={isUploading}
+          initial={{ y: '50%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.5 }}
+          data-testid="button-save-memory"
+        >
+          <img src="/design-ref/frame7/save%20memory.png" alt="Save" className="w-full h-full object-contain" />
+          {isUploading && <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-2xl">Saving...</span>}
+        </motion.button>
+
+        <motion.button
+          type="button"
+          style={pos(285, 1701, 510, 122)}
+          whileTap={{ scale: 0.95 }}
+          onClick={onPrint}
+          initial={{ y: '50%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.6 }}
+          data-testid="button-print-memory"
+        >
+          <img src="/design-ref/frame7/print%20the%20memory.png" alt="Print" className="w-full h-full object-contain" />
+        </motion.button>
+
+        <motion.button
+          type="button"
+          className="text-[#64412B] font-bold text-3xl uppercase tracking-wider"
+          style={pos(285, 1840, 510, 50)}
+          whileTap={{ scale: 0.95 }}
+          onClick={onStartOver}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          data-testid="button-make-another"
+        >
+          Start Over
+        </motion.button>
       </div>
 
       {/* Print area */}
@@ -441,17 +696,29 @@ function Home() {
   }, [photoMode, step, countdown]);
 
   // Generation progress
+  const [isGenerating, setIsGenerating] = useState(false);
+
   useEffect(() => {
-    if (step !== 'generating') return;
-    const t = setInterval(() => setProgress((p) => Math.min(100, p + 8)), 250);
+    if (step !== 'generating') {
+      setIsGenerating(false);
+      return;
+    }
+    // Increment progress smoothly up to 95% while waiting for API
+    const t = setInterval(() => setProgress((p) => {
+      if (p >= 95) return 95;
+      return p + (95 - p) * 0.02; // Ease towards 95% very smoothly
+    }), 50);
     return () => clearInterval(t);
   }, [step]);
 
   useEffect(() => {
-    if (step !== 'generating' || progress < 100) return;
-    const t = setTimeout(() => setStep('result'), 600);
-    return () => clearTimeout(t);
-  }, [progress, step]);
+    // When step is generating and it's NO LONGER generating (meaning API finished)
+    if (step === 'generating' && !isGenerating && progress > 0) {
+      setProgress(100);
+      const t = setTimeout(() => setStep('result'), 600);
+      return () => clearTimeout(t);
+    }
+  }, [isGenerating, step, progress]);
 
   // Toast dismiss
   useEffect(() => {
@@ -461,9 +728,51 @@ function Home() {
   }, [toast]);
 
   const goGenerate = async () => {
-    setGeneratedImage(demoGeneratedPhoto); // will be replaced by real API call
     setStep('generating');
     setProgress(0);
+    setIsGenerating(true);
+
+    if (photoDataUrl) {
+      try {
+        const response = await fetch('/api/memory/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageBase64: photoDataUrl,
+            mimeType: 'image/jpeg',
+            experience,
+            location,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.imageBase64) {
+          const mime = data.mimeType || 'image/jpeg';
+          setGeneratedImage(`data:${mime};base64,${data.imageBase64}`);
+        } else {
+          setGeneratedImage(demoGeneratedPhoto);
+        }
+      } catch (error: any) {
+        console.error('Generation failed:', error);
+        setToast(error.message || 'Failed to generate. Using demo image.');
+        setGeneratedImage(demoGeneratedPhoto);
+      } finally {
+        setIsGenerating(false);
+      }
+    } else {
+      // Fallback for demo mode
+      setTimeout(() => {
+        setGeneratedImage(demoGeneratedPhoto);
+        setIsGenerating(false);
+      }, 3000);
+    }
   };
 
   const startOver = () => {
@@ -521,62 +830,78 @@ function Home() {
 
   return (
     <div className="booth-shell">
-      {step === 'welcome' && (
-        <Welcome onStart={() => setStep('experience')} />
-      )}
+      <AnimatePresence mode="wait">
+        {step === 'welcome' && (
+          <PageTransition stepKey="welcome">
+            <Welcome onStart={() => setStep('experience')} />
+          </PageTransition>
+        )}
 
-      {step === 'experience' && (
-        <ExperienceStep
-          value={experience}
-          onChange={setExperience}
-          onNext={() => setStep('location')}
-        />
-      )}
+        {step === 'experience' && (
+          <PageTransition stepKey="experience">
+            <ExperienceStep
+              value={experience}
+              onChange={setExperience}
+              onNext={() => setStep('location')}
+            />
+          </PageTransition>
+        )}
 
-      {step === 'location' && (
-        <LocationStep
-          value={location}
-          onChange={setLocation}
-          onNext={() => setStep('smile')}
-        />
-      )}
+        {step === 'location' && (
+          <PageTransition stepKey="location">
+            <LocationStep
+              value={location}
+              onChange={setLocation}
+              onNext={() => setStep('smile')}
+            />
+          </PageTransition>
+        )}
 
-      {step === 'smile' && (
-        <SmileScreen onDone={() => setStep('photo')} />
-      )}
+        {step === 'smile' && (
+          <PageTransition stepKey="smile">
+            <SmileScreen onDone={() => setStep('photo')} />
+          </PageTransition>
+        )}
 
-      {step === 'photo' && (
-        <PhotoStep
-          mode={photoMode}
-          fileName={fileName}
-          photoDataUrl={photoDataUrl}
-          countdown={countdown}
-          cameraVideoRef={cameraVideoRef}
-          cameraReady={Boolean(cameraStream)}
-          cameraError={cameraError}
-          onChooseDemo={() => { setFileName(null); setPhotoDataUrl(null); setPhotoMode('demo'); setToast('Demo loaded.'); }}
-          onUpload={handleUpload}
-          onCapture={() => setCountdown(3)}
-        />
-      )}
+        {step === 'photo' && (
+          <PageTransition stepKey="photo">
+            <PhotoStep
+              mode={photoMode}
+              fileName={fileName}
+              photoDataUrl={photoDataUrl}
+              countdown={countdown}
+              cameraVideoRef={cameraVideoRef}
+              cameraReady={Boolean(cameraStream)}
+              cameraError={cameraError}
+              onChooseDemo={() => { setFileName(null); setPhotoDataUrl(null); setPhotoMode('demo'); setToast('Demo loaded.'); }}
+              onUpload={handleUpload}
+              onCapture={() => setCountdown(3)}
+            />
+          </PageTransition>
+        )}
 
-      {step === 'generating' && (
-        <GeneratingStep progress={progress} />
-      )}
+        {step === 'generating' && (
+          <PageTransition stepKey="generating">
+            <GeneratingStep progress={progress} />
+          </PageTransition>
+        )}
 
-      {step === 'result' && (
-        <ResultStep
-          saved={saved}
-          isUploading={isUploading}
-          qrUrl={qrUrl}
-          generatedImage={generatedImage}
-          originalPhoto={photoDataUrl}
-          onSave={handleSave}
-          onPrint={() => { window.print(); setToast('Print dialog opened.'); }}
-          onStartOver={startOver}
-          onCloseQR={() => setSaved(false)}
-        />
-      )}
+        {step === 'result' && (
+          <PageTransition stepKey="result">
+            <ResultStep
+              saved={saved}
+              isUploading={isUploading}
+              qrUrl={qrUrl}
+              generatedImage={generatedImage}
+              originalPhoto={photoDataUrl}
+              onSave={handleSave}
+              onPrint={() => { window.print(); setToast('Print dialog opened.'); }}
+              onStartOver={startOver}
+              onCloseQR={() => setSaved(false)}
+            />
+          </PageTransition>
+        )}
+      </AnimatePresence>
 
       {toast && (
         <div className="booth-toast" role="status" data-testid="status-toast">
