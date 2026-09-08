@@ -1,9 +1,7 @@
 // Vercel Serverless Function — /api/memory/generate
-// Calls Gemini image generation directly (no Express dependency)
+// Calls Gemini image generation directly (CommonJS)
 
-declare const process: { env: Record<string, string | undefined> };
-
-export const config = {
+module.exports.config = {
   api: {
     bodyParser: {
       sizeLimit: '20mb',
@@ -11,6 +9,7 @@ export const config = {
     maxDuration: 60,
   },
 };
+
 
 const BASE_PROMPT = `Using the uploaded photo as the exact identity reference for both people, regenerate a photorealistic image of the same two individuals — preserve their facial identity, unique features, skin tone, and hairstyle so they remain clearly recognizable as the same people. Keep their original clothing colors and style unless the scene requires a natural adjustment. Maintain a warm, cinematic, editorial photography look with soft natural lighting, sharp focus on both faces, and a joyful, affectionate interaction between the two subjects (natural pose, genuine smile). Do not add any extra people. High detail, professional photo quality, 4K.`;
 
@@ -28,7 +27,7 @@ const LOCATION_PROMPTS: Record<string, string> = {
   trip: `Place both subjects outdoors at the Giza Pyramids in Egypt during golden sunset: pyramids silhouetted in the warm-toned desert background, soft sand foreground, travel-photography look with warm orange/brown color grading.`,
 };
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -104,5 +103,6 @@ export default async function handler(req: any, res: any) {
     });
   } catch (err: any) {
     return res.status(500).json({ error: `Server error: ${err.message}` });
-  }
 }
+
+module.exports.default = handler;

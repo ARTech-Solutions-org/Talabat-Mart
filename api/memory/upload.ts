@@ -1,9 +1,7 @@
 // Vercel Serverless Function — /api/memory/upload
-// Uploads image to ImgBB directly (no Express dependency)
+// Uploads image to ImgBB directly (CommonJS)
 
-declare const process: { env: Record<string, string | undefined> };
-
-export const config = {
+module.exports.config = {
   api: {
     bodyParser: {
       sizeLimit: '20mb',
@@ -12,7 +10,7 @@ export const config = {
   },
 };
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -54,3 +52,5 @@ export default async function handler(req: any, res: any) {
     return res.status(502).json({ error: `Upload failed: ${err.message}` });
   }
 }
+
+module.exports.default = handler;
