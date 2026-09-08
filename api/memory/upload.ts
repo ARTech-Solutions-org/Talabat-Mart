@@ -1,6 +1,8 @@
 // Vercel Serverless Function — /api/memory/upload
 // Uploads image to ImgBB directly (no Express dependency)
 
+declare const process: { env: Record<string, string | undefined> };
+
 export const config = { maxDuration: 60 };
 
 export default async function handler(req: any, res: any) {
