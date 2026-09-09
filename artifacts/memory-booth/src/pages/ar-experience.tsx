@@ -201,7 +201,16 @@ export const ArExperience: React.FC = () => {
     s.src = '/mindar-image-three.prod.js';
     s.setAttribute('data-mindar', '1');
     s.onload  = () => initAR();
-    s.onerror = () => { setErrorMsg('تعذّر تحميل مكتبة AR من السيرفر'); setPhase('error'); };
+    s.onerror = () => {
+      const fb = document.createElement('script');
+      fb.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-three.prod.js';
+      fb.onload = () => initAR();
+      fb.onerror = () => {
+        setErrorMsg('تعذّر تحميل مكتبة AR');
+        setPhase('error');
+      };
+      document.head.appendChild(fb);
+    };
     document.head.appendChild(s);
 
     return () => { cleanupRef.current?.(); };
