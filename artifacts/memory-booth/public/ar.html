@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>AI Memory — AR Experience</title>
+
+  <!--
+    MindAR.js + Three.js bundle (image tracking, zero-install WebAR)
+    Physical target: 102 × 152 mm printed photo card
+    Anchor system   : target width = 1 unit  →  height = 152/102 ≈ 1.49 units
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+
+    /* MindAR injects its video + canvas here */
+    #ar-root { width: 100vw; height: 100vh; position: relative; }
+
+    /* ── Scan-guide overlay (visible until target found) ───────────────── */
+    #scan-overlay {
+      position: fixed; inset: 0; z-index: 40;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: linear-gradient(to bottom, rgba(0,0,0,.35) 0%, transparent 40%, transparent 60%, rgba(0,0,0,.55) 100%);
+      pointer-events: none;
+      transition: opacity .4s;
+    }
+    #scan-overlay.hidden { opacity: 0; }
+
+    /* Viewfinder — matches 102:152 card aspect exactly */
+    .viewfinder {
+      width: min(72vw, 260px);
+      aspect-ratio: 102 / 152;
+      position: relative;
+      margin-bottom: 28px;
+    }
+    .vf-border {
+      position: absolute; inset: 0;
+      border: 1.5px solid rgba(255, 169, 64, .45);
+      border-radius: 6px;
+    }
+    /* Corner brackets */
+    .vf-corner {
+      position: absolute; width: 22px; height: 22px;
+      border-color: #FFA940; border-style: solid;
+    }
+    .tl { top:-2px; left:-2px; border-width:3px 0 0 3px; border-radius: 5px 0 0 0; }
+    .tr { top:-2px; right:-2px; border-width:3px 3px 0 0; border-radius: 0 5px 0 0; }
+    .bl { bottom:-2px; left:-2px; border-width:0 0 3px 3px; border-radius: 0 0 0 5px; }
+    .br { bottom:-2px; right:-2px; border-width:0 3px 3px 0; border-radius: 0 0 5px 0; }
+
+    /* Scan line */
+    .scan-line {
+      position: absolute; inset-x: 6px;
+      height: 2px;
+      background: linear-gradient(to right, transparent, #FFA940 40%, #FFA940 60%, transparent);
+      box-shadow: 0 0 10px 2px rgba(255,169,64,.6);
+      animation: sweep 2.2s ease-in-out infinite;
+    }
+    @keyframes sweep { 0%,100%{ top: 8%; } 50%{ top: 88%; } }
+
+    .scan-label {
+      color: #fff;
+      font-size: 16px; font-weight: 700;
+      text-align: center;
+      text-shadow: 0 2px 12px rgba(0,0,0,.9);
+      letter-spacing: .02em;
+      margin-bottom: 8px;
+    }
+    .scan-sub {
+      color: rgba(255,255,255,.52);
+      font-size: 12px; text-align: center;
+    }
+
+    /* ── Status pill ───────────────────────────────────────────────────── */
+    #status-pill {
+      position: fixed;
+      top: max(16px, env(safe-area-inset-top));
+      left: 50%; transform: translateX(-50%);
+      z-index: 50;
+      padding: 6px 16px;
+      border-radius: 99px;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,.12);
+      display: flex; align-items: center; gap: 8px;
+      color: #fff; font-size: 12px; font-weight: 600;
+      white-space: nowrap;
+      pointer-events: none;
+      transition: all .3s;
+    }
+    #status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,.3);
+      transition: background .3s, box-shadow .3s;
+      flex-shrink: 0;
+    }
+    #status-dot.found   { background: #00e676; box-shadow: 0 0 7px #00e676; }
+    #status-dot.lost    { background: #ff5252; }
+    #status-dot.loading { background: #FFA940; animation: blink 1s infinite; }
+    @keyframes blink { 0%,100%{ opacity:1; } 50%{ opacity:.3; } }
+
+    /* ── Bottom action bar ─────────────────────────────────────────────── */
+    #action-bar {
+      position: fixed;
+      bottom: 0; inset-x: 0;
+      z-index: 50;
+      padding: 16px 24px;
+      padding-bottom: max(24px, calc(16px + env(safe-area-inset-bottom)));
+      background: linear-gradient(to top, rgba(0,0,0,.92) 0%, transparent 100%);
+      display: flex; justify-content: center;
+      opacity: 0; transform: translateY(20px);
+      transition: opacity .4s, transform .4s;
+      pointer-events: none;
+    }
+    #action-bar.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+    #btn-download {
+      width: 100%; max-width: 360px;
+      padding: 17px 24px;
+      border: none; border-radius: 18px;
+      background: linear-gradient(135deg, #FF5C00 0%, #FFA940 100%);
+      color: #fff; font-size: 16px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      cursor: pointer;
+      box-shadow: 0 8px 32px rgba(255,92,0,.45);
+      transition: transform .15s, box-shadow .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #btn-download:active { transform: scale(.97); box-shadow: 0 4px 16px rgba(255,92,0,.3); }
+    #btn-download svg { flex-shrink: 0; }
+
+    /* ── Back button ───────────────────────────────────────────────────── */
+    #btn-back {
+      position: fixed;
+      top: max(16px, env(safe-area-inset-top));
+      right: 16px;
+      z-index: 50;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,.14);
+      color: rgba(255,255,255,.85);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Loading spinner (while MindAR initialises) ─────────────────── */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 100;
+      background: #0d0205;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+      transition: opacity .5s;
+    }
+    #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,169,64,.2);
+      border-top-color: #FFA940;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .load-text { color: rgba(255,255,255,.7); font-size: 14px; }
+
+    /* Hide MindAR's built-in UI */
+    .mindar-ui-overlay { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading screen -->
+  <div id="loading-screen">
+    <div class="spinner"></div>
+    <p class="load-text">جاري تشغيل الكاميرا...</p>
+  </div>
+
+  <!-- MindAR root (camera + WebGL canvas injected here) -->
+  <div id="ar-root"></div>
+
+  <!-- Scan guide (shown while target not found) -->
+  <div id="scan-overlay">
+    <div class="viewfinder">
+      <div class="vf-border"></div>
+      <div class="vf-corner tl"></div>
+      <div class="vf-corner tr"></div>
+      <div class="vf-corner bl"></div>
+      <div class="vf-corner br"></div>
+      <div class="scan-line"></div>
+    </div>
+    <p class="scan-label">وجّه الكاميرا على الكارت المطبوع</p>
+    <p class="scan-sub">اجعل الكارت داخل الإطار تماماً</p>
+  </div>
+
+  <!-- Status pill -->
+  <div id="status-pill">
+    <div id="status-dot" class="loading"></div>
+    <span id="status-text">جاري البحث عن الكارت...</span>
+  </div>
+
+  <!-- Back -->
+  <a id="btn-back" href="/">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path d="M9 18l6-6-6-6"/>
+    </svg>
+    رجوع
+  </a>
+
+  <!-- Bottom bar (download, shown when target is tracked) -->
+  <div id="action-bar">
+    <button id="btn-download" onclick="downloadPhoto()">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      حفظ الصورة بجهازك
+    </button>
+  </div>
+
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// URL params
+// ─────────────────────────────────────────────────────────────────────────────
+const params  = new URLSearchParams(location.search);
+const imgUrl  = params.get('img')   ? decodeURIComponent(params.get('img'))  : null;
+const origUrl = params.get('orig')  ? decodeURIComponent(params.get('orig')) : null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Physical card: 102 × 152 mm
+// In MindAR anchor space: target width = 1 unit, height = 152/102
+// ─────────────────────────────────────────────────────────────────────────────
+const CARD_W  = 1;
+const CARD_H  = 152 / 102;        // ≈ 1.4902
+const PHOTO_W = CARD_W  * 0.84;
+const PHOTO_H = CARD_H  * 0.72;
+const PHOTO_Z_BASE   = 0.06;      // flat base on card
+const PHOTO_Z_POP    = 0.14;      // main floating layer
+const PHOTO_Z_TOP    = 0.22;      // topmost pop-out layer
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function setStatus(label, dotClass) {
+  $('status-text').textContent = label;
+  $('status-dot').className = dotClass;
+}
+
+// Load any image URL as a Three.js texture — bypasses CORS by using canvas
+function loadTexture(url) {
+  const THREE = window.MINDAR.IMAGE.THREE;
+  return new Promise(resolve => {
+    const tryLoad = (crossOrigin) => {
+      const img = new Image();
+      if (crossOrigin) img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c   = document.createElement('canvas');
+        c.width   = img.naturalWidth  || 600;
+        c.height  = img.naturalHeight || 900;
+        c.getContext('2d').drawImage(img, 0, 0);
+        const t   = new THREE.CanvasTexture(c);
+        t.colorSpace = THREE.SRGBColorSpace;
+        resolve(t);
+      };
+      img.onerror = () => {
+        if (crossOrigin) tryLoad(false); // retry without crossOrigin
+        else resolve(makeFallbackTexture());
+      };
+      img.src = url;
+    };
+    tryLoad(true);
+  });
+}
+
+function makeFallbackTexture() {
+  const THREE = window.MINDAR.IMAGE.THREE;
+  const c = document.createElement('canvas');
+  c.width = 400; c.height = 600;
+  const ctx = c.getContext('2d');
+  const gr  = ctx.createLinearGradient(0, 0, 0, 600);
+  gr.addColorStop(0, '#2b060d'); gr.addColorStop(1, '#5c1020');
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, 400, 600);
+  ctx.fillStyle  = '#FFA940'; ctx.font = 'bold 26px sans-serif';
+  ctx.textAlign  = 'center';
+  ctx.fillText('AI Memory Photo', 200, 300);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build 3D scene objects and attach to the MindAR anchor
+// ─────────────────────────────────────────────────────────────────────────────
+let pop2Mesh  = null;
+let haloMesh  = null;
+let particles = null;
+
+async function buildAnchorContent(anchor, scene) {
+  const THREE = window.MINDAR.IMAGE.THREE;
+  const group = anchor.group;            // parented to tracked image transform
+
+  // ── Card base (off-white frame surface) ──────────────────────────────────
+  const frameGeo = new THREE.BoxGeometry(CARD_W, CARD_H, 0.018);
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0xfcf4e8, roughness: 0.55, metalness: 0.02 });
+  group.add(new THREE.Mesh(frameGeo, frameMat));
+
+  // ── Gold border trim ─────────────────────────────────────────────────────
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xffc247, metalness: 0.92, roughness: 0.10 });
+  const bars = [
+    // [w, h, d, x, y, z]
+    [CARD_W + 0.01, 0.038, 0.038,  0,          CARD_H/2,  0.02],
+    [CARD_W + 0.01, 0.038, 0.038,  0,         -CARD_H/2,  0.02],
+    [0.038, CARD_H + 0.01, 0.038,  CARD_W/2,   0,         0.02],
+    [0.038, CARD_H + 0.01, 0.038, -CARD_W/2,   0,         0.02],
+  ];
+  bars.forEach(([w,h,d,x,y,z]) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), goldMat);
+    m.position.set(x, y, z);
+    group.add(m);
+  });
+
+  // ── Photo layers ─────────────────────────────────────────────────────────
+  const tex = imgUrl
+    ? await loadTexture(imgUrl)
+    : makeFallbackTexture();
+
+  // Layer 0 — flat base (exactly on card surface)
+  const base = new THREE.Mesh(
+    new THREE.PlaneGeometry(PHOTO_W, PHOTO_H),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35 })
+  );
+  base.position.set(0, 0, PHOTO_Z_BASE);
+  group.add(base);
+
+  // Drop shadow (between base and card)
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(PHOTO_W * 1.05, PHOTO_H * 1.05),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.50 })
+  );
+  shadow.position.set(0.006, -0.009, PHOTO_Z_BASE - 0.012);
+  group.add(shadow);
+
+  // Layer 1 — mid pop-out
+  const pop1 = new THREE.Mesh(
+    new THREE.PlaneGeometry(PHOTO_W * 0.99, PHOTO_H * 0.99),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.18, transparent: true, opacity: 0.90 })
+  );
+  pop1.position.set(0, 0, PHOTO_Z_POP);
+  group.add(pop1);
+
+  // Layer 2 — top pop-out (animated)
+  pop2Mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(PHOTO_W * 0.97, PHOTO_H * 0.97),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.10, transparent: true, opacity: 0.85 })
+  );
+  pop2Mesh.position.set(0, 0, PHOTO_Z_TOP);
+  group.add(pop2Mesh);
+
+  // Orange glow halo around photo
+  haloMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(PHOTO_W * 1.1, PHOTO_H * 1.1),
+    new THREE.MeshBasicMaterial({
+      color: 0xff7700, transparent: true, opacity: 0.20,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    })
+  );
+  haloMesh.position.set(0, 0, PHOTO_Z_POP - 0.015);
+  group.add(haloMesh);
+
+  // ── Gold sparkle particles ────────────────────────────────────────────────
+  const N = 28;
+  const pArr = new Float32Array(N * 3);
+  for (let i = 0; i < N * 3; i += 3) {
+    pArr[i]     = (Math.random() - 0.5) * CARD_W  * 1.1;
+    pArr[i + 1] = (Math.random() - 0.5) * CARD_H  * 1.1;
+    pArr[i + 2] = Math.random() * 0.18 + 0.03;
+  }
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pArr, 3));
+  particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
+    color: 0xffcc44, size: 0.022, transparent: true, opacity: 0.95,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  group.add(particles);
+
+  // ── Lighting ──────────────────────────────────────────────────────────────
+  const ambient = new THREE.AmbientLight(0xffffff, 2.2);
+  scene.add(ambient);
+
+  const key = new THREE.DirectionalLight(0xfff8ee, 2.8);
+  key.position.set(1.5, 2.5, 4);
+  scene.add(key);
+
+  const fill = new THREE.PointLight(0xff8800, 2.2, 6);
+  fill.position.set(-1, 0.5, 2);
+  scene.add(fill);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Animation loop (called every frame by MindAR's renderer)
+// ─────────────────────────────────────────────────────────────────────────────
+let elapsed = 0;
+function tick(delta) {
+  elapsed += delta;
+
+  // Photo top layer breathes in Z (gives "floating hologram" look)
+  if (pop2Mesh) {
+    pop2Mesh.position.z = PHOTO_Z_TOP + Math.sin(elapsed * 2.1) * 0.018;
+  }
+
+  // Halo pulses
+  if (haloMesh) {
+    haloMesh.material.opacity = 0.16 + Math.sin(elapsed * 2.6) * 0.07;
+  }
+
+  // Sparkles rotate
+  if (particles) {
+    particles.rotation.z = elapsed * 0.04;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Download
+// ─────────────────────────────────────────────────────────────────────────────
+function downloadPhoto() {
+  if (!imgUrl) { alert('لا توجد صورة للحفظ'); return; }
+  const a  = document.createElement('a');
+  a.href   = imgUrl;
+  a.target = '_blank';
+  a.download = `ai-memory-${Date.now()}.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main: initialise MindAR
+// ─────────────────────────────────────────────────────────────────────────────
+async function startAR() {
+  const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+    container:      $('ar-root'),
+    imageTargetSrc: '/targets.mind',  // compiled from print-frame-landscape.png
+    maxTrack:       1,
+    filterMinCF:    0.001,   // reduce jitter (lower = smoother but more lag)
+    filterBeta:     1000,    // one-euro filter param for tracking smoothness
+    missTolerance:  5,       // frames to wait before declaring target lost
+    warmupTolerance: 3,      // frames before declaring target found
+    uiLoading:      'no',
+    uiScanning:     'no',
+    uiError:        'no',
+  });
+
+  const { renderer, scene, camera } = mindarThree;
+
+  // Anchor 0 = first (and only) target image
+  const anchor = mindarThree.addAnchor(0);
+
+  // ── Target detected ───────────────────────────────────────────────────────
+  anchor.onTargetFound = () => {
+    $('scan-overlay').classList.add('hidden');
+    $('action-bar').classList.add('visible');
+    setStatus('الكارت مكتشف ✓', 'found');
+  };
+
+  // ── Target lost ───────────────────────────────────────────────────────────
+  anchor.onTargetLost = () => {
+    $('scan-overlay').classList.remove('hidden');
+    $('action-bar').classList.remove('visible');
+    setStatus('جاري البحث عن الكارت...', 'lost');
+  };
+
+  // Build 3D content
+  await buildAnchorContent(anchor, scene);
+
+  // Start camera & tracking
+  setStatus('جاري تشغيل الكاميرا...', 'loading');
+  await mindarThree.start();
+
+  // Hide loading screen
+  const ls = $('loading-screen');
+  ls.classList.add('fade-out');
+  setTimeout(() => ls.remove(), 600);
+
+  setStatus('جاري البحث عن الكارت...', 'lost');
+
+  // Animation loop with delta time
+  let lastTime = performance.now();
+  renderer.setAnimationLoop(() => {
+    const now   = performance.now();
+    const delta = (now - lastTime) / 1000;
+    lastTime    = now;
+    tick(delta);
+    renderer.render(scene, camera);
+  });
+}
+
+// Start on DOMContentLoaded
+startAR().catch(err => {
+  console.error('[AR] start failed:', err);
+  setStatus('خطأ في تشغيل الكاميرا', 'lost');
+  const ls = $('loading-screen');
+  ls.innerHTML = `
+    <p style="color:#ff5252;font-size:15px;text-align:center;padding:24px;">
+      تعذّر تشغيل الكاميرا.<br>
+      <span style="color:rgba(255,255,255,.5);font-size:12px;">
+        ${err?.message || 'تأكد من السماح بالوصول للكاميرا'}
+      </span>
+    </p>
+    <a href="/" style="color:#FFA940;font-size:14px;text-decoration:none;">← رجوع</a>
+  `;
+});
+</script>
+</body>
+</html>
