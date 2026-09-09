@@ -12,15 +12,8 @@
     Physical target: 102 × 152 mm printed photo card
     Anchor system   : target width = 1 unit  →  height = 152/102 ≈ 1.49 units
   -->
-  <!-- MindAR primary (unpkg, blocking) + jsdelivr fallback -->
-  <script src="https://unpkg.com/mind-ar@1.2.2/dist/mindar-image-three.prod.js"></script>
-  <script>
-    // If unpkg failed, try jsdelivr fallback
-    if (!window.MINDAR) {
-      document.write('<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"><\/script>');
-    }
-  </script>
-
+  <!-- MindAR self-hosted bundle (no CDN dependency) -->
+  <script src="/mindar-image-three.prod.js"></script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
