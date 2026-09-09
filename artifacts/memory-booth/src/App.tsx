@@ -783,11 +783,12 @@ function Home() {
       const t = setTimeout(() => setStep('result'), 800);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [isGenerating, step]);
 
   // Toast dismiss
   useEffect(() => {
-    if (!toast) return;
+    if (!toast) return undefined;
     const t = setTimeout(() => setToast(null), toast.isError ? 6500 : 3200);
     return () => clearTimeout(t);
   }, [toast]);
