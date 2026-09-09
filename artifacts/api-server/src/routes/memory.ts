@@ -38,12 +38,27 @@ type GeminiHttpResponse = {
 
 // ─── Prompt Building Blocks ────────────────────────────────────────────────
 
-const BASE_PROMPT = `Using the uploaded photo as the exact identity reference for both people, regenerate a photorealistic image of the same two individuals — preserve their facial identity, unique features, skin tone, and hairstyle so they remain clearly recognizable as the same people. Keep their original clothing colors and style unless the scene requires a natural adjustment. Maintain a warm, cinematic, editorial photography look with soft natural lighting, sharp focus on both faces, and a joyful, affectionate interaction between the two subjects (natural pose, genuine smile). Do not add any extra people. High detail, professional photo quality, 4K.`;
+const BASE_PROMPT = `Using the uploaded photo as the exact identity reference for both people, regenerate a photorealistic image of the same two individuals.
+
+CRITICAL SUBJECT IDENTIFICATION INSTRUCTION:
+First, carefully analyze the two individuals in the uploaded reference photo:
+- Person 1 (The older / more mature person): Look for more mature facial features, adult bone structure, facial hair/stubble, or older appearance. If both individuals are similar in age (e.g. friends, peers, or brothers), designate the person on the LEFT as Person 1.
+- Person 2 (The younger / less mature person): Look for younger, more youthful, or child/teen facial features and smaller proportions. If both individuals are similar in age, designate the person on the RIGHT as Person 2.
+- KEEP RELATIVE POSITIONS: Maintain Person 1 on the left and Person 2 on the right so identities are never swapped or confused.
+
+IDENTITY PRESERVATION:
+Preserve both individuals' exact facial identity, eye shape, nose, distinct features, skin tone, and hair texture so they remain 100% clearly recognizable as the same people. Keep their original clothing colors and style unless the scene requires a natural adjustment. Maintain a warm, cinematic, editorial photography look with soft natural lighting, sharp focus on both faces, and a joyful, genuine smile. Do not add any extra people. High detail, professional photo quality, 4K.`;
 
 const EXPERIENCE_PROMPTS: Record<NonNullable<GenerateMemoryBody["experience"]>, string> = {
-  younger: `Age transformation: keep the child's apparent age exactly the same as in the original photo. Reduce the parent's apparent age by approximately 15–20 years — smoother skin, fuller and darker hair (remove gray if present), more youthful facial structure — while keeping the parent clearly recognizable as the same person (same face shape, eyes, nose, smile). The parent should now look youthful, energetic, close in age to a young adult, standing/sitting naturally next to the child.`,
+  younger: `AGE TRANSFORMATION — MAKE THE OLDER PERSON YOUNGER:
+- For Person 1 (the older / adult subject, or person on the left): Visually de-age Person 1 by approximately 15–20 years. Give Person 1 smooth, youthful, radiant skin, darker/fuller hair without gray, and an energetic young-adult appearance (as if they traveled back in time to their youth) — WHILE STRICTLY PRESERVING their facial bone structure, eye shape, smile, and identity so they are unmistakably the younger version of themselves.
+- For Person 2 (the younger / child subject, or person on the right): KEEP Person 2 at their EXACT same original age and facial features from the reference photo without aging them.
+- Interaction: Both subjects now appear close in age like peers or young friends, interacting warmly and happily together in the scene.`,
 
-  older: `Age transformation: age the child up to look like a young adult / recent graduate, approximately 20–24 years old — mature facial proportions, adult height and posture — while clearly preserving the child's original facial identity (same eyes, face shape, smile, hair color/texture, just matured). Simultaneously reduce the parent's apparent age by approximately 10–15 years — smoother skin, more youthful hair and posture — while keeping the parent clearly recognizable as the same person. The goal is for the two subjects to now appear close in age to each other, like siblings or peers, while still visibly being the same two people from the original photo.`,
+  older: `AGE TRANSFORMATION — MAKE THE YOUNGER PERSON GROW UP:
+- For Person 2 (the younger / child subject, or person on the right): Age Person 2 UP into an accomplished young adult / university graduate (approximately 20–24 years old). Give them mature adult facial proportions, adult height, and a confident adult demeanor — WHILE STRICTLY PRESERVING their core facial identity, eye shape, nose, smile, and distinct features matured naturally into adulthood.
+- For Person 1 (the older / adult subject, or person on the left): Keep Person 1 clearly recognizable and proudly celebrating together (slightly refreshed and rejuvenated by 5–10 years so they look vibrant, proud, and energized).
+- Interaction: Person 2 is now grown up standing proudly beside Person 1 as an accomplished adult graduate/peer, sharing a proud, celebratory milestone moment.`,
 };
 
 const LOCATION_PROMPTS: Record<NonNullable<GenerateMemoryBody["location"]>, string> = {
