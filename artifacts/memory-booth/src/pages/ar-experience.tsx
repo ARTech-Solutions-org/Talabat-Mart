@@ -171,12 +171,19 @@ export const ArExperience: React.FC = () => {
   };
 
   const loadFrameTexture = async (THREE: any) => {
-    const img = await loadHTMLImage('/print-frame-landscape.png');
+    let img = await loadHTMLImage('/print-frame-clean.png');
+    if (!img) img = await loadHTMLImage('/print-frame-landscape.png');
     if (!img) return null;
     const c = document.createElement('canvas');
     c.width = img.naturalWidth || 2471;
     c.height = img.naturalHeight || 1658;
-    c.getContext('2d')!.drawImage(img, 0, 0);
+    const ctx = c.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    // Double-safeguard: mask out logo & ribbon if fallback image was used
+    ctx.fillStyle = '#FF5900';
+    ctx.fillRect(860, 75, 750, 170); // Cleans logo area in orange header
+    ctx.fillStyle = '#F7EEE3';
+    ctx.fillRect(760, 1305, 955, 255); // Cleans ribbon area in beige background
     return createTextureFromCanvas(c, THREE);
   };
 
@@ -254,16 +261,18 @@ export const ArExperience: React.FC = () => {
         loadFrameTexture(THREE),
       ]);
 
-      // 0. Base Frame Card Plate (The full printed landscape frame at Z=0.001)
+      // 0. Base Frame Card Plate (Clean printed landscape frame at Z=0.001)
+      // Provides clean background so the 3D photos, logo, and ribbon float without duplicates underneath!
       if (frameTex) {
         const frameGeo = new THREE.PlaneGeometry(CARD_W, CARD_H);
         const frameMat = new THREE.MeshBasicMaterial({
           map: frameTex,
-          transparent: true,
+          transparent: false,
           depthWrite: true,
         });
         const frameMesh = new THREE.Mesh(frameGeo, frameMat);
         frameMesh.position.set(0, 0, 0.001);
+        frameMesh.renderOrder = 0;
         anchor.group.add(frameMesh);
       }
 
@@ -275,10 +284,12 @@ export const ArExperience: React.FC = () => {
         new THREE.MeshBasicMaterial({ map: sharedShadowTex, transparent: true, depthWrite: false, opacity: 0.90 })
       );
       aiShadowMesh.position.set(AI_SLOT_X + 0.005, AI_SLOT_Y - 0.007, 0.008);
+      aiShadowMesh.renderOrder = 1;
       anchor.group.add(aiShadowMesh);
 
       const aiPhotoMesh = createPhotoSlab(THREE, photos.aiTex, AI_SLOT_W, AI_SLOT_H, 0.012);
       aiPhotoMesh.position.set(AI_SLOT_X, AI_SLOT_Y, 0.052);
+      aiPhotoMesh.renderOrder = 3;
       anchor.group.add(aiPhotoMesh);
 
       // 2. Left Slot (Original Photo - Elevated Pop-Out at Z=0.038)
@@ -287,10 +298,12 @@ export const ArExperience: React.FC = () => {
         new THREE.MeshBasicMaterial({ map: sharedShadowTex, transparent: true, depthWrite: false, opacity: 0.85 })
       );
       origShadowMesh.position.set(ORIG_SLOT_X + 0.004, ORIG_SLOT_Y - 0.006, 0.008);
+      origShadowMesh.renderOrder = 1;
       anchor.group.add(origShadowMesh);
 
       const origPhotoMesh = createPhotoSlab(THREE, photos.origTex, ORIG_SLOT_W, ORIG_SLOT_H, 0.012);
       origPhotoMesh.position.set(ORIG_SLOT_X, ORIG_SLOT_Y, 0.038);
+      origPhotoMesh.renderOrder = 3;
       anchor.group.add(origPhotoMesh);
 
       // 3. Talabat Mart Logo (Top Center Elevated Badge at Z=0.032)
@@ -302,6 +315,7 @@ export const ArExperience: React.FC = () => {
           new THREE.MeshBasicMaterial({ map: sharedShadowTex, transparent: true, depthWrite: false, opacity: 0.85 })
         );
         logoShadowMesh.position.set(LOGO_X + 0.003, LOGO_Y - 0.005, 0.007);
+        logoShadowMesh.renderOrder = 1;
         anchor.group.add(logoShadowMesh);
 
         logoMesh = new THREE.Mesh(
@@ -309,6 +323,7 @@ export const ArExperience: React.FC = () => {
           new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, depthWrite: true, alphaTest: 0.05 })
         );
         logoMesh.position.set(LOGO_X, LOGO_Y, 0.032);
+        logoMesh.renderOrder = 2;
         anchor.group.add(logoMesh);
       }
 
@@ -321,6 +336,7 @@ export const ArExperience: React.FC = () => {
           new THREE.MeshBasicMaterial({ map: sharedShadowTex, transparent: true, depthWrite: false, opacity: 0.80 })
         );
         bannerShadowMesh.position.set(BANNER_X + 0.003, BANNER_Y - 0.005, 0.007);
+        bannerShadowMesh.renderOrder = 1;
         anchor.group.add(bannerShadowMesh);
 
         bannerMesh = new THREE.Mesh(
@@ -328,6 +344,7 @@ export const ArExperience: React.FC = () => {
           new THREE.MeshBasicMaterial({ map: bannerTex, transparent: true, depthWrite: true, alphaTest: 0.05 })
         );
         bannerMesh.position.set(BANNER_X, BANNER_Y, 0.024);
+        bannerMesh.renderOrder = 2;
         anchor.group.add(bannerMesh);
       }
 
