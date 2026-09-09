@@ -117,26 +117,25 @@ function PwaFullscreenButton() {
   if (isStandalone) return null;
 
   return (
-    <div className="absolute top-4 right-4 z-50 pointer-events-auto">
+    <div className="absolute top-0 left-0 z-50 pointer-events-auto">
+      {/* Invisible secret trigger area in top-left corner */}
       <button
         onClick={handleAction}
-        className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-black/40 backdrop-blur-md text-white text-xs font-semibold border border-white/25 shadow-lg active:scale-95 transition-all hover:bg-black/60"
-        title="تثبيت التطبيق أو ملء الشاشة لإخفاء شريط العنوان"
+        className="w-24 h-24 opacity-0 bg-transparent cursor-default focus:outline-none border-none p-0 select-none"
+        title="تثبيت التطبيق أو ملء الشاشة (زر مخفي)"
+        aria-label="Toggle Fullscreen / PWA"
         type="button"
-      >
-        <span className="text-sm leading-none">📱</span>
-        <span>تثبيت / ملء الشاشة</span>
-      </button>
+      />
 
       {showIosGuide && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="absolute top-12 right-0 w-72 p-3 rounded-2xl bg-[#FF5900] text-white shadow-2xl border border-white/40 text-xs text-right leading-relaxed"
+          className="absolute top-16 left-4 w-72 p-3.5 rounded-2xl bg-[#FF5900] text-white shadow-2xl border border-white/40 text-xs text-right leading-relaxed z-50"
         >
           <p className="font-bold mb-1">💡 لإخفاء شريط البحث والظهور كتطبيق كامل:</p>
           <p>
-            اضغط على زر المشاركة <b>(Share ⎋)</b> في Safari، ثم اختر <b>"إضافة إلى الشاشة الرئيسية"</b> (Add to Home Screen).
+            اضغط على زر المشاركة <b>(Share ⎋)</b> في متصفح Safari، ثم اختر <b>"إضافة إلى الشاشة الرئيسية"</b> (Add to Home Screen).
           </p>
         </motion.div>
       )}
