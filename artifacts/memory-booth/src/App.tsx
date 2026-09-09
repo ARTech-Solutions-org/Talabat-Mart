@@ -13,6 +13,8 @@ import {
   useLocation,
   Router as WouterRouter,
 } from 'wouter';
+import { KioskGate } from '@/components/kiosk-gate';
+import { ArExperience } from '@/pages/ar-experience';
 
 const queryClient = new QueryClient();
 
@@ -575,11 +577,23 @@ function ResultStep({
       {saved && qrUrl && (
         <>
           <div className="qr-backdrop no-print" onClick={onCloseQR} />
-          <div className="qr-modal no-print">
-            <h2>Scan to Download</h2>
-            <QRCodeSVG value={qrUrl} size={200} bgColor="#ffffff" fgColor="#3D0C17" level="Q" />
-            <p>Point your phone's camera at this code to download your memory.</p>
-            <button className="qr-close-btn" onClick={onCloseQR}>Close</button>
+          <div className="qr-modal no-print" dir="rtl">
+            <h2 className="!text-xl font-bold mb-1">تجربة الواقع المعزز 3D ✨</h2>
+            <p className="!text-xs !mb-4 text-white/80">امسح الكود بكاميرا هاتفك لتشاهد الصورة مجسمة 3D وتنزيلها بجهازك</p>
+            <div className="bg-white p-3 rounded-2xl shadow-inner inline-block mx-auto mb-3">
+              <QRCodeSVG value={qrUrl} size={180} bgColor="#ffffff" fgColor="#3D0C17" level="Q" />
+            </div>
+            <div className="flex gap-2 justify-center w-full mt-1">
+              <a
+                href={qrUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>تجربة الـ AR الآن</span>
+              </a>
+              <button className="qr-close-btn !mt-0 !py-2 !px-4" onClick={onCloseQR}>إغلاق</button>
+            </div>
           </div>
         </>
       )}
@@ -890,9 +904,10 @@ function Home() {
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setQrUrl(data.url);
+      const arUrl = `${window.location.origin}/ar?img=${encodeURIComponent(data.url)}`;
+      setQrUrl(arUrl);
       setSaved(true);
-      showToast('Memory saved! Scan to download.');
+      showToast('Memory saved! Scan for 3D AR.');
     } catch (err: any) {
       showToast(err.message || 'Upload failed.', true);
     } finally {
@@ -986,13 +1001,36 @@ function Home() {
   );
 }
 
+// ─── Protected Kiosk Route ───────────────────────────────────────────────
+
+function ProtectedHome() {
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const boothKey = params.get('booth_key');
+    if (boothKey) {
+      localStorage.setItem('booth_authorized', 'true');
+      // Clean up URL query parameter without reload
+      window.history.replaceState({}, '', window.location.pathname);
+      return true;
+    }
+    return localStorage.getItem('booth_authorized') === 'true';
+  });
+
+  if (!isAuthorized) {
+    return <KioskGate onUnlock={() => setIsAuthorized(true)} />;
+  }
+
+  return <Home />;
+}
+
 // ─── Router ────────────────────────────────────────────────────────────────
 
 function Router() {
   return (
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/" component={ProtectedHome} />
+        <Route path="/ar" component={ArExperience} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>
