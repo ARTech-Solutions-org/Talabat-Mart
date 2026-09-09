@@ -53,11 +53,103 @@ function PageTransition({ children, stepKey }: { children: ReactNode; stepKey: s
   );
 }
 
+// ─── PWA & Fullscreen Control Button ───────────────────────────────────────
+
+function PwaFullscreenButton() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [showIosGuide, setShowIosGuide] = useState(false);
+
+  useEffect(() => {
+    const checkStandalone = () => {
+      const standalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true;
+      setIsStandalone(Boolean(standalone));
+    };
+    checkStandalone();
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleAction = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // 1. Android / Chromium PWA Prompt
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          setDeferredPrompt(null);
+          return;
+        }
+      } catch (err) {
+        console.warn('Install prompt error:', err);
+      }
+    }
+
+    // 2. Fullscreen API (hides browser URL bar on Android/Desktop)
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      try {
+        await document.documentElement.requestFullscreen();
+        return;
+      } catch (err) {
+        console.warn('Fullscreen request failed:', err);
+      }
+    }
+
+    // 3. iOS Safari Guide
+    const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    if (isIos && !isStandalone) {
+      setShowIosGuide((prev) => !prev);
+    }
+  };
+
+  if (isStandalone) return null;
+
+  return (
+    <div className="absolute top-4 right-4 z-50 pointer-events-auto">
+      <button
+        onClick={handleAction}
+        className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-black/40 backdrop-blur-md text-white text-xs font-semibold border border-white/25 shadow-lg active:scale-95 transition-all hover:bg-black/60"
+        title="تثبيت التطبيق أو ملء الشاشة لإخفاء شريط العنوان"
+        type="button"
+      >
+        <span className="text-sm leading-none">📱</span>
+        <span>تثبيت / ملء الشاشة</span>
+      </button>
+
+      {showIosGuide && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute top-12 right-0 w-72 p-3 rounded-2xl bg-[#FF5900] text-white shadow-2xl border border-white/40 text-xs text-right leading-relaxed"
+        >
+          <p className="font-bold mb-1">💡 لإخفاء شريط البحث والظهور كتطبيق كامل:</p>
+          <p>
+            اضغط على زر المشاركة <b>(Share ⎋)</b> في Safari، ثم اختر <b>"إضافة إلى الشاشة الرئيسية"</b> (Add to Home Screen).
+          </p>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 // ─── Screen 1 — Welcome ────────────────────────────────────────────────────
 
 function Welcome({ onStart }: { onStart: () => void }) {
   return (
     <div className="booth-screen" data-testid="display-welcome-art">
+      <PwaFullscreenButton />
       <img src="/design-ref/frame1/bg%201.svg" alt="" className="booth-bg" />
       <motion.img 
         src="/design-ref/frame1/bag%201.svg" 
