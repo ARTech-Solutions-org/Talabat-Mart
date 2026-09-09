@@ -46,12 +46,12 @@
     }
     #scan-overlay.hidden { opacity: 0; }
 
-    /* Viewfinder — matches 102:152 card aspect exactly */
+    /* Viewfinder — matches 152:102 landscape card aspect */
     .viewfinder {
-      width: min(72vw, 260px);
-      aspect-ratio: 102 / 152;
+      width: min(85vw, 320px);
+      aspect-ratio: 152 / 102;
       position: relative;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
     .vf-border {
       position: absolute; inset: 0;
@@ -255,16 +255,16 @@ const imgUrl  = params.get('img')   ? decodeURIComponent(params.get('img'))  : n
 const origUrl = params.get('orig')  ? decodeURIComponent(params.get('orig')) : null;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Physical card: 102 × 152 mm
-// In MindAR anchor space: target width = 1 unit, height = 152/102
+// Physical card: 152 × 102 mm Landscape (2471 × 1658 px target)
+// In MindAR anchor space: target width = 1.0 unit, height = 1658 / 2471 ≈ 0.671
+// Slot for AI Photo on the card: x=1307, y=275, w=910, h=823
 // ─────────────────────────────────────────────────────────────────────────────
-const CARD_W  = 1;
-const CARD_H  = 152 / 102;        // ≈ 1.4902
-const PHOTO_W = CARD_W  * 0.84;
-const PHOTO_H = CARD_H  * 0.72;
-const PHOTO_Z_BASE   = 0.06;      // flat base on card
-const PHOTO_Z_POP    = 0.14;      // main floating layer
-const PHOTO_Z_TOP    = 0.22;      // topmost pop-out layer
+const CARD_W = 1.0;
+const CARD_H = 1658 / 2471;                // ≈ 0.67098
+const SLOT_W = 910 / 2471;                 // ≈ 0.3683
+const SLOT_H = 823 / 2471;                 // ≈ 0.3331
+const SLOT_X = (1307 + 910/2 - 2471/2) / 2471; // +0.2131
+const SLOT_Y = (1658/2 - (275 + 823/2)) / 2471; // +0.0577
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -276,7 +276,7 @@ function setStatus(label, dotClass) {
   $('status-dot').className = dotClass;
 }
 
-// Load any image URL as a Three.js texture — bypasses CORS by using canvas
+// Load image into a CanvasTexture with natural true-to-life colors
 function loadTexture(url) {
   const THREE = window.MINDAR.IMAGE.THREE;
   return new Promise(resolve => {
@@ -285,15 +285,19 @@ function loadTexture(url) {
       if (crossOrigin) img.crossOrigin = 'anonymous';
       img.onload = () => {
         const c   = document.createElement('canvas');
-        c.width   = img.naturalWidth  || 600;
-        c.height  = img.naturalHeight || 900;
-        c.getContext('2d').drawImage(img, 0, 0);
+        c.width   = img.naturalWidth  || 910;
+        c.height  = img.naturalHeight || 823;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0);
         const t   = new THREE.CanvasTexture(c);
-        t.colorSpace = THREE.SRGBColorSpace;
+        if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+        if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+        t.minFilter = THREE.LinearFilter;
+        t.magFilter = THREE.LinearFilter;
         resolve(t);
       };
       img.onerror = () => {
-        if (crossOrigin) tryLoad(false); // retry without crossOrigin
+        if (crossOrigin) tryLoad(false);
         else resolve(makeFallbackTexture());
       };
       img.src = url;
@@ -305,147 +309,87 @@ function loadTexture(url) {
 function makeFallbackTexture() {
   const THREE = window.MINDAR.IMAGE.THREE;
   const c = document.createElement('canvas');
-  c.width = 400; c.height = 600;
+  c.width = 910; c.height = 823;
   const ctx = c.getContext('2d');
-  const gr  = ctx.createLinearGradient(0, 0, 0, 600);
-  gr.addColorStop(0, '#2b060d'); gr.addColorStop(1, '#5c1020');
-  ctx.fillStyle = gr; ctx.fillRect(0, 0, 400, 600);
-  ctx.fillStyle  = '#FFA940'; ctx.font = 'bold 26px sans-serif';
-  ctx.textAlign  = 'center';
-  ctx.fillText('AI Memory Photo', 200, 300);
+  ctx.fillStyle = '#2b060d';
+  ctx.fillRect(0, 0, 910, 823);
+  ctx.fillStyle = '#FFA940';
+  ctx.font = 'bold 36px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('AI Memory Photo', 455, 411);
   const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
+  if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+  if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Build 3D scene objects and attach to the MindAR anchor
+// Build 3D Scene: Clean, Natural Photo with 3D Depth & Pop-Out
+// NO artificial boxes, NO gold rails, NO orange neon glow, NO fake sparkles
 // ─────────────────────────────────────────────────────────────────────────────
-let pop2Mesh  = null;
-let haloMesh  = null;
-let particles = null;
+let photoPlateMesh = null;
+let shadowMesh     = null;
 
 async function buildAnchorContent(anchor, scene) {
   const THREE = window.MINDAR.IMAGE.THREE;
-  const group = anchor.group;            // parented to tracked image transform
+  const group = anchor.group;
 
-  // ── Card base (off-white frame surface) ──────────────────────────────────
-  const frameGeo = new THREE.BoxGeometry(CARD_W, CARD_H, 0.018);
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0xfcf4e8, roughness: 0.55, metalness: 0.02 });
-  group.add(new THREE.Mesh(frameGeo, frameMat));
-
-  // ── Gold border trim ─────────────────────────────────────────────────────
-  const goldMat = new THREE.MeshStandardMaterial({ color: 0xffc247, metalness: 0.92, roughness: 0.10 });
-  const bars = [
-    // [w, h, d, x, y, z]
-    [CARD_W + 0.01, 0.038, 0.038,  0,          CARD_H/2,  0.02],
-    [CARD_W + 0.01, 0.038, 0.038,  0,         -CARD_H/2,  0.02],
-    [0.038, CARD_H + 0.01, 0.038,  CARD_W/2,   0,         0.02],
-    [0.038, CARD_H + 0.01, 0.038, -CARD_W/2,   0,         0.02],
-  ];
-  bars.forEach(([w,h,d,x,y,z]) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), goldMat);
-    m.position.set(x, y, z);
-    group.add(m);
-  });
-
-  // ── Photo layers ─────────────────────────────────────────────────────────
   const tex = imgUrl
     ? await loadTexture(imgUrl)
     : makeFallbackTexture();
 
-  // Layer 0 — flat base (exactly on card surface)
-  const base = new THREE.Mesh(
-    new THREE.PlaneGeometry(PHOTO_W, PHOTO_H),
-    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35 })
-  );
-  base.position.set(0, 0, PHOTO_Z_BASE);
-  group.add(base);
+  // 1. Soft, realistic contact shadow on the paper card surface
+  const shadowCanvas = document.createElement('canvas');
+  shadowCanvas.width = 256; shadowCanvas.height = 256;
+  const sCtx = shadowCanvas.getContext('2d');
+  const grad = sCtx.createRadialGradient(128, 128, 40, 128, 128, 120);
+  grad.addColorStop(0, 'rgba(0, 0, 0, 0.40)');
+  grad.addColorStop(0.6, 'rgba(0, 0, 0, 0.15)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  sCtx.fillStyle = grad;
+  sCtx.fillRect(0, 0, 256, 256);
+  const shadowTex = new THREE.CanvasTexture(shadowCanvas);
 
-  // Drop shadow (between base and card)
-  const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(PHOTO_W * 1.05, PHOTO_H * 1.05),
-    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.50 })
-  );
-  shadow.position.set(0.006, -0.009, PHOTO_Z_BASE - 0.012);
-  group.add(shadow);
-
-  // Layer 1 — mid pop-out
-  const pop1 = new THREE.Mesh(
-    new THREE.PlaneGeometry(PHOTO_W * 0.99, PHOTO_H * 0.99),
-    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.18, transparent: true, opacity: 0.90 })
-  );
-  pop1.position.set(0, 0, PHOTO_Z_POP);
-  group.add(pop1);
-
-  // Layer 2 — top pop-out (animated)
-  pop2Mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(PHOTO_W * 0.97, PHOTO_H * 0.97),
-    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.10, transparent: true, opacity: 0.85 })
-  );
-  pop2Mesh.position.set(0, 0, PHOTO_Z_TOP);
-  group.add(pop2Mesh);
-
-  // Orange glow halo around photo
-  haloMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(PHOTO_W * 1.1, PHOTO_H * 1.1),
+  shadowMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(SLOT_W * 1.18, SLOT_H * 1.18),
     new THREE.MeshBasicMaterial({
-      color: 0xff7700, transparent: true, opacity: 0.20,
-      blending: THREE.AdditiveBlending, depthWrite: false,
+      map: shadowTex,
+      transparent: true,
+      depthWrite: false,
     })
   );
-  haloMesh.position.set(0, 0, PHOTO_Z_POP - 0.015);
-  group.add(haloMesh);
+  shadowMesh.position.set(SLOT_X + 0.004, SLOT_Y - 0.006, 0.008);
+  group.add(shadowMesh);
 
-  // ── Gold sparkle particles ────────────────────────────────────────────────
-  const N = 28;
-  const pArr = new Float32Array(N * 3);
-  for (let i = 0; i < N * 3; i += 3) {
-    pArr[i]     = (Math.random() - 0.5) * CARD_W  * 1.1;
-    pArr[i + 1] = (Math.random() - 0.5) * CARD_H  * 1.1;
-    pArr[i + 2] = Math.random() * 0.18 + 0.03;
-  }
-  const pGeo = new THREE.BufferGeometry();
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pArr, 3));
-  particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
-    color: 0xffcc44, size: 0.022, transparent: true, opacity: 0.95,
-    blending: THREE.AdditiveBlending, depthWrite: false,
-  }));
-  group.add(particles);
+  // 2. 3D Floating Photo Card (Physical Depth with Clean White Photo-Paper Edge)
+  // MeshBasicMaterial guarantees 100% natural, unchanged photo pixels — zero light distortion!
+  const photoGeo  = new THREE.BoxGeometry(SLOT_W, SLOT_H, 0.012);
+  const photoMat  = new THREE.MeshBasicMaterial({ map: tex });
+  const edgeMat   = new THREE.MeshBasicMaterial({ color: 0xf8f8f8 }); // clean photo paper core
 
-  // ── Lighting ──────────────────────────────────────────────────────────────
-  const ambient = new THREE.AmbientLight(0xffffff, 2.2);
-  scene.add(ambient);
+  const materials = [
+    edgeMat,   // right (+X)
+    edgeMat,   // left (-X)
+    edgeMat,   // top (+Y)
+    edgeMat,   // bottom (-Y)
+    photoMat,  // front (+Z) — 100% original natural photo
+    edgeMat,   // back (-Z)
+  ];
 
-  const key = new THREE.DirectionalLight(0xfff8ee, 2.8);
-  key.position.set(1.5, 2.5, 4);
-  scene.add(key);
-
-  const fill = new THREE.PointLight(0xff8800, 2.2, 6);
-  fill.position.set(-1, 0.5, 2);
-  scene.add(fill);
+  photoPlateMesh = new THREE.Mesh(photoGeo, materials);
+  photoPlateMesh.position.set(SLOT_X, SLOT_Y, 0.045);
+  group.add(photoPlateMesh);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Animation loop (called every frame by MindAR's renderer)
+// Natural, gentle 3D floating animation (Parallax depth feel)
 // ─────────────────────────────────────────────────────────────────────────────
 let elapsed = 0;
 function tick(delta) {
   elapsed += delta;
-
-  // Photo top layer breathes in Z (gives "floating hologram" look)
-  if (pop2Mesh) {
-    pop2Mesh.position.z = PHOTO_Z_TOP + Math.sin(elapsed * 2.1) * 0.018;
-  }
-
-  // Halo pulses
-  if (haloMesh) {
-    haloMesh.material.opacity = 0.16 + Math.sin(elapsed * 2.6) * 0.07;
-  }
-
-  // Sparkles rotate
-  if (particles) {
-    particles.rotation.z = elapsed * 0.04;
+  if (photoPlateMesh) {
+    // Subtle, natural breathing elevation in Z (true 3D pop-out)
+    photoPlateMesh.position.z = 0.045 + Math.sin(elapsed * 1.6) * 0.004;
   }
 }
 

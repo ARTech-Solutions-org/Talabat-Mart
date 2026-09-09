@@ -8,12 +8,13 @@ declare global {
   }
 }
 
-// Physical card: 102 mm × 152 mm
-// MindAR normalises target width = 1 unit → height = 152/102 ≈ 1.49
-const CARD_W = 1;
-const CARD_H = 152 / 102;
-const PHOTO_W = CARD_W * 0.84;
-const PHOTO_H = CARD_H * 0.72;
+// Physical card: 152 mm × 102 mm Landscape (2471 × 1658 px target)
+const CARD_W = 1.0;
+const CARD_H = 1658 / 2471;
+const SLOT_W = 910 / 2471;                 // ≈ 0.3683
+const SLOT_H = 823 / 2471;                 // ≈ 0.3331
+const SLOT_X = (1307 + 910/2 - 2471/2) / 2471; // +0.2131
+const SLOT_Y = (1658/2 - (275 + 823/2)) / 2471; // +0.0577
 
 export const ArExperience: React.FC = () => {
   const params  = new URLSearchParams(window.location.search);
@@ -34,11 +35,14 @@ export const ArExperience: React.FC = () => {
         if (crossOrigin) img.crossOrigin = 'anonymous';
         img.onload = () => {
           const c = document.createElement('canvas');
-          c.width = img.naturalWidth || 600;
-          c.height = img.naturalHeight || 900;
+          c.width = img.naturalWidth || 910;
+          c.height = img.naturalHeight || 823;
           c.getContext('2d')!.drawImage(img, 0, 0);
           const t = new THREE.CanvasTexture(c);
-          t.colorSpace = THREE.SRGBColorSpace;
+          if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+          if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+          t.minFilter = THREE.LinearFilter;
+          t.magFilter = THREE.LinearFilter;
           resolve(t);
         };
         img.onerror = () => crossOrigin ? tryLoad(false) : resolve(makeFallback(THREE));
@@ -49,12 +53,15 @@ export const ArExperience: React.FC = () => {
 
   const makeFallback = (THREE: any) => {
     const c = document.createElement('canvas');
-    c.width = 400; c.height = 600;
+    c.width = 910; c.height = 823;
     const ctx = c.getContext('2d')!;
-    ctx.fillStyle = '#2b060d'; ctx.fillRect(0, 0, 400, 600);
-    ctx.fillStyle = '#FFA940'; ctx.font = 'bold 22px sans-serif';
-    ctx.textAlign = 'center'; ctx.fillText('AI Memory', 200, 300);
-    return new THREE.CanvasTexture(c);
+    ctx.fillStyle = '#2b060d'; ctx.fillRect(0, 0, 910, 823);
+    ctx.fillStyle = '#FFA940'; ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center'; ctx.fillText('AI Memory', 455, 411);
+    const t = new THREE.CanvasTexture(c);
+    if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+    if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
   };
 
   // ── Main AR init (runs after MindAR script is loaded) ────────────────────
@@ -89,91 +96,55 @@ export const ArExperience: React.FC = () => {
       anchor.onTargetFound = () => setPhase('tracking');
       anchor.onTargetLost  = () => setPhase('scanning');
 
-      // ── Lighting ──
-      scene.add(new THREE.AmbientLight(0xffffff, 2.2));
-      const key = new THREE.DirectionalLight(0xfff8ee, 2.8);
-      key.position.set(1.5, 2.5, 4); scene.add(key);
-      const fill = new THREE.PointLight(0xff8800, 2.2, 6);
-      fill.position.set(-1, 0.5, 2); scene.add(fill);
-
-      // ── Card base ──
-      const frameGeo = new THREE.BoxGeometry(CARD_W, CARD_H, 0.018);
-      const frameMat = new THREE.MeshStandardMaterial({ color: 0xfcf4e8, roughness: 0.55 });
-      anchor.group.add(new THREE.Mesh(frameGeo, frameMat));
-
-      // ── Gold border ──
-      const goldMat = new THREE.MeshStandardMaterial({ color: 0xffc247, metalness: 0.92, roughness: 0.10 });
-      ([
-        [CARD_W + 0.01, 0.038, 0.038,  0,          CARD_H/2,  0.02],
-        [CARD_W + 0.01, 0.038, 0.038,  0,         -CARD_H/2,  0.02],
-        [0.038, CARD_H + 0.01, 0.038,  CARD_W/2,   0,         0.02],
-        [0.038, CARD_H + 0.01, 0.038, -CARD_W/2,   0,         0.02],
-      ] as number[][]).forEach(([w,h,d,x,y,z]) => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), goldMat);
-        m.position.set(x, y, z); anchor.group.add(m);
-      });
-
-      // ── Photo layers ──
-      let pop2: any = null, halo: any = null, sparkles: any = null;
+      // ── Clean 3D Photo Setup (No fake lights, No fake borders, 100% natural photo) ──
       const tex = imgUrl ? await loadTexture(imgUrl, THREE) : makeFallback(THREE);
 
-      // Flat base
-      const base = new THREE.Mesh(
-        new THREE.PlaneGeometry(PHOTO_W, PHOTO_H),
-        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35 })
+      // 1. Soft realistic contact drop-shadow on the card surface
+      const shadowCanvas = document.createElement('canvas');
+      shadowCanvas.width = 256; shadowCanvas.height = 256;
+      const sCtx = shadowCanvas.getContext('2d')!;
+      const grad = sCtx.createRadialGradient(128, 128, 40, 128, 128, 120);
+      grad.addColorStop(0, 'rgba(0, 0, 0, 0.40)');
+      grad.addColorStop(0.6, 'rgba(0, 0, 0, 0.15)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      sCtx.fillStyle = grad;
+      sCtx.fillRect(0, 0, 256, 256);
+      const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+
+      const shadowMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(SLOT_W * 1.18, SLOT_H * 1.18),
+        new THREE.MeshBasicMaterial({
+          map: shadowTex,
+          transparent: true,
+          depthWrite: false,
+        })
       );
-      base.position.set(0, 0, 0.015); anchor.group.add(base);
+      shadowMesh.position.set(SLOT_X + 0.004, SLOT_Y - 0.006, 0.008);
+      anchor.group.add(shadowMesh);
 
-      // Shadow
-      const shd = new THREE.Mesh(
-        new THREE.PlaneGeometry(PHOTO_W * 1.05, PHOTO_H * 1.05),
-        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45 })
-      );
-      shd.position.set(0.006, -0.009, 0.028); anchor.group.add(shd);
+      // 2. Physical 3D Floating Photo Card (MeshBasicMaterial preserves 100% original photo pixels)
+      const photoGeo = new THREE.BoxGeometry(SLOT_W, SLOT_H, 0.012);
+      const photoMat = new THREE.MeshBasicMaterial({ map: tex });
+      const edgeMat  = new THREE.MeshBasicMaterial({ color: 0xf8f8f8 }); // clean photo paper core
 
-      // Mid pop-out
-      const pop1 = new THREE.Mesh(
-        new THREE.PlaneGeometry(PHOTO_W * 0.99, PHOTO_H * 0.99),
-        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.18, transparent: true, opacity: 0.90 })
-      );
-      pop1.position.set(0, 0, 0.06); anchor.group.add(pop1);
+      const materials = [
+        edgeMat,   // right (+X)
+        edgeMat,   // left (-X)
+        edgeMat,   // top (+Y)
+        edgeMat,   // bottom (-Y)
+        photoMat,  // front (+Z) — 100% original natural photo
+        edgeMat,   // back (-Z)
+      ];
 
-      // Top pop-out (animated)
-      pop2 = new THREE.Mesh(
-        new THREE.PlaneGeometry(PHOTO_W * 0.97, PHOTO_H * 0.97),
-        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.10, transparent: true, opacity: 0.85 })
-      );
-      pop2.position.set(0, 0, 0.12); anchor.group.add(pop2);
+      const photoPlateMesh = new THREE.Mesh(photoGeo, materials);
+      photoPlateMesh.position.set(SLOT_X, SLOT_Y, 0.045);
+      anchor.group.add(photoPlateMesh);
 
-      // Glow halo
-      halo = new THREE.Mesh(
-        new THREE.PlaneGeometry(PHOTO_W * 1.1, PHOTO_H * 1.1),
-        new THREE.MeshBasicMaterial({ color: 0xff7700, transparent: true, opacity: 0.20, blending: THREE.AdditiveBlending, depthWrite: false })
-      );
-      halo.position.set(0, 0, 0.045); anchor.group.add(halo);
-
-      // Sparkles
-      const N = 28, pArr = new Float32Array(N * 3);
-      for (let i = 0; i < N * 3; i += 3) {
-        pArr[i]   = (Math.random() - 0.5) * CARD_W * 1.1;
-        pArr[i+1] = (Math.random() - 0.5) * CARD_H * 1.1;
-        pArr[i+2] = Math.random() * 0.18 + 0.03;
-      }
-      const pGeo = new THREE.BufferGeometry();
-      pGeo.setAttribute('position', new THREE.BufferAttribute(pArr, 3));
-      sparkles = new THREE.Points(pGeo, new THREE.PointsMaterial({
-        color: 0xffcc44, size: 0.022, transparent: true, opacity: 0.95,
-        blending: THREE.AdditiveBlending, depthWrite: false,
-      }));
-      anchor.group.add(sparkles);
-
-      // Animation loop
+      // Animation loop (subtle floating elevation)
       let elapsed = 0;
       renderer.setAnimationLoop((delta: number) => {
         elapsed += (delta || 16) / 1000;
-        if (pop2) pop2.position.z = 0.12 + Math.sin(elapsed * 2.1) * 0.018;
-        if (halo) halo.material.opacity = 0.16 + Math.sin(elapsed * 2.6) * 0.07;
-        if (sparkles) sparkles.rotation.z = elapsed * 0.04;
+        photoPlateMesh.position.z = 0.045 + Math.sin(elapsed * 1.6) * 0.004;
         renderer.render(scene, camera);
       });
 
@@ -256,7 +227,7 @@ export const ArExperience: React.FC = () => {
       {/* Scan guide */}
       {(phase === 'scanning') && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
-          <div className="relative mb-8" style={{ width: 'min(72vw, 240px)', aspectRatio: '102/152' }}>
+          <div className="relative mb-8" style={{ width: 'min(85vw, 320px)', aspectRatio: '152/102' }}>
             {['top-0 right-0 border-t-[3px] border-r-[3px] rounded-tr-lg',
               'top-0 left-0 border-t-[3px] border-l-[3px] rounded-tl-lg',
               'bottom-0 right-0 border-b-[3px] border-r-[3px] rounded-br-lg',
