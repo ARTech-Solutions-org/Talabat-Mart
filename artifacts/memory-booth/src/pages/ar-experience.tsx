@@ -170,6 +170,16 @@ export const ArExperience: React.FC = () => {
     return createTextureFromCanvas(c, THREE);
   };
 
+  const loadFrameTexture = async (THREE: any) => {
+    const img = await loadHTMLImage('/print-frame-landscape.png');
+    if (!img) return null;
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth || 2471;
+    c.height = img.naturalHeight || 1658;
+    c.getContext('2d')!.drawImage(img, 0, 0);
+    return createTextureFromCanvas(c, THREE);
+  };
+
   const createShadowTexture = (THREE: any) => {
     const c = document.createElement('canvas');
     c.width = 256; c.height = 256;
@@ -227,17 +237,35 @@ export const ArExperience: React.FC = () => {
       mindarRef.current = mindarThree;
 
       const { renderer, scene, camera } = mindarThree;
+      if (renderer && renderer.setClearColor) {
+        renderer.setClearColor(0x000000, 0);
+      }
+
       const anchor = mindarThree.addAnchor(0);
 
       anchor.onTargetFound = () => setPhase('tracking');
       anchor.onTargetLost  = () => setPhase('scanning');
 
       // ── Clean 3D Multi-Element Pop-Out Setup ──
-      const [photos, logoTex, bannerTex] = await Promise.all([
+      const [photos, logoTex, bannerTex, frameTex] = await Promise.all([
         loadPhotoTextures(THREE),
         loadLogoTexture(THREE),
         loadBannerTexture(THREE),
+        loadFrameTexture(THREE),
       ]);
+
+      // 0. Base Frame Card Plate (The full printed landscape frame at Z=0.001)
+      if (frameTex) {
+        const frameGeo = new THREE.PlaneGeometry(CARD_W, CARD_H);
+        const frameMat = new THREE.MeshBasicMaterial({
+          map: frameTex,
+          transparent: true,
+          depthWrite: true,
+        });
+        const frameMesh = new THREE.Mesh(frameGeo, frameMat);
+        frameMesh.position.set(0, 0, 0.001);
+        anchor.group.add(frameMesh);
+      }
 
       const sharedShadowTex = createShadowTexture(THREE);
 
@@ -336,6 +364,8 @@ export const ArExperience: React.FC = () => {
       });
 
       await mindarThree.start();
+      if (mindarThree.video) mindarThree.video.style.zIndex = '0';
+      if (renderer.domElement) renderer.domElement.style.zIndex = '1';
       setPhase('scanning');
 
       cleanupRef.current = () => {
@@ -386,9 +416,9 @@ export const ArExperience: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black overflow-hidden" dir="rtl">
+    <div className="fixed inset-0 bg-transparent overflow-hidden" dir="rtl">
       {/* MindAR container */}
-      <div ref={containerRef} className="absolute inset-0 z-0" />
+      <div ref={containerRef} className="absolute inset-0 z-0 [&>video]:!z-0 [&>canvas]:!z-[1] [&>canvas]:pointer-events-none" />
 
       {/* Loading */}
       {phase === 'loading' && (
