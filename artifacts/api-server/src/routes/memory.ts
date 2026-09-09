@@ -39,16 +39,20 @@ type GeminiHttpResponse = {
 // ─── Prompt Building Blocks ────────────────────────────────────────────────
 
 const EXPERIENCE_PROMPTS: Record<NonNullable<GenerateMemoryBody["experience"]>, string> = {
-  younger: `AGE TRANSFORMATION — REJUVENATE THE PARENT (PRESERVING EXACT IDENTITY & POSE):
-- Retain the exact body pose, stance, gestures, hand placement, and interaction between both individuals as seen in the reference photo.
-- For the Parent / Adult: Rejuvenate the parent into their vibrant prime youth (approx 20–25 years old). Give them smooth, youthful skin, fuller and darker hair (remove any gray hair or aging lines), and fresh young-adult energy — WHILE STRICTLY PRESERVING their facial bone structure, eye shape, nose, distinctive smile, and identity so they are 100% UNMISTAKABLY the same person in their youth. Do NOT turn the adult into a child.
+  younger: `AGE TRANSFORMATION — DE-AGE THE PARENT INTO A SCHOOLCHILD (CHILDHOOD LIKENESS & EXACT POSE):
+- Identify the adult parent (the person with adult facial features, beard/stubble, or mature build) and the child in the reference photo.
+- For the Adult Parent: Turn the parent into a schoolchild (approximately 10–12 years old). This must be a true, photorealistic CHILDHOOD VERSION of this specific person:
+  * STRICTLY PRESERVE the parent's core facial DNA: exact eye shape, eyelid fold, nose structure, eyebrow arch, distinctive smile shape, ear shape, and natural skin tone, naturally adapted into a 10–12 year old kid's face (what this exact adult looked like as a school student).
+  * Remove all facial hair, beard, mustache, and adult facial creases, giving them smooth youthful skin and school-kid hair.
+  * Adjust their body size to a 10–12 year old child while KEEPING their exact pose, arm and hand placement, and head tilt from the photo.
+  * It must NOT be a random generic child face; anyone looking at the photo should immediately recognize the childhood face of this exact parent!
 - For the Child: Keep the child at their EXACT same age, facial features, and expression from the original photo.
-- Both individuals must remain immediately recognizable as the same real people from the photo, holding their original pose.`,
+- Both subjects now appear as two school-age peers/friends standing together, maintaining the EXACT physical interaction, gestures, and pose from the original photo.`,
 
   older: `AGE TRANSFORMATION — GROW UP THE CHILD (PRESERVING EXACT IDENTITY & POSE):
 - Retain the exact body pose, stance, gestures, hand placement, and interaction between both individuals as seen in the reference photo.
 - For the Child: Age the child up into a tall, accomplished young adult / university graduate (approx 20–24 years old). Give them mature adult facial proportions while STRICTLY PRESERVING their childhood facial identity (same eyes, face shape, distinctive smile, and skin tone).
-- For the Parent / Adult: Keep the parent clearly recognizable and proud, looking refreshed and youthful (rejuvenated by 5–10 years).
+- For the Parent / Adult: Keep the parent clearly recognizable and proud, looking refreshed and youthful.
 - Both individuals keep their exact pose, placement, and spatial relationship from the reference photo.`,
 };
 
@@ -65,13 +69,13 @@ function buildPrompt(experience: NonNullable<GenerateMemoryBody["experience"]>, 
   const expText = EXPERIENCE_PROMPTS[experience];
   const locText = LOCATION_PROMPTS[location];
 
-  return `Using the uploaded photo as the exact reference for both people, generate a photorealistic image that preserves the exact same individuals and their poses, transported into a new background with an age transformation:
+  return `Using the uploaded photo as the exact reference for both people, generate a photorealistic image that transports both individuals into a new background with an age transformation while preserving their exact poses and facial identities:
 
 1. CRITICAL POSE, COMPOSITION & IDENTITY PRESERVATION:
 - STRICTLY PRESERVE the exact pose, body posture, gestures, arm/hand placement, head tilt, and physical orientation of both individuals from the uploaded photo.
-- Maintain their exact positions relative to each other (who is on the left and who is on the right, how they stand or sit, their spatial relationship).
+- Maintain their exact positions relative to each other (who is on the left and who is on the right, how they stand or sit, their spatial relationship and physical contact).
 - Do NOT alter their poses or invent new body positions. The framing, camera angle, and physical postures must match the original photo.
-- PRESERVE their facial identity, unique facial features, skin tone, eye shape, nose shape, and distinct smile so they remain 100% immediately recognizable as the same people. Do NOT generate generic or random faces.
+- PRESERVE facial identity, unique facial features, skin tone, eye shape, nose shape, and distinct smile so they remain 100% immediately recognizable as the same people. Do NOT generate generic or random faces.
 
 2. BACKGROUND REPLACEMENT:
 - Replace the original background completely with this new setting:
@@ -81,7 +85,7 @@ ${locText}
 3. ${expText}
 
 - Style: Warm, cinematic editorial photography, natural lighting, sharp focus on both faces, genuine expressions matching the original photo. High detail, 4K quality.
-- Negative constraints: changed poses, altered posture, different body positions, swapped positions, repositioned arms or hands, random faces, generic faces, child version of parent, unrecognizable people, extra people, text overlays, watermarks, distorted faces, unrealistic proportions, extra limbs, deformed fingers.`;
+- Negative constraints: generic random children, completely different poses, altered body postures, swapped positions, repositioned arms or hands, unrecognizable people, extra people, text overlays, watermarks, distorted faces, unrealistic proportions, extra limbs, deformed fingers.`;
 }
 
 router.post(
