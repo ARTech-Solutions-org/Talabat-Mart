@@ -1,49 +1,39 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import {
-  Download,
-  RotateCcw,
-  Sparkles,
-  Smartphone,
-  ChevronLeft,
-  ScanLine,
-} from 'lucide-react';
+import { Download, RotateCcw, Sparkles, ChevronLeft, ScanLine } from 'lucide-react';
 
 export const ArExperience: React.FC = () => {
   const searchParams = new URLSearchParams(window.location.search);
-  const rawImgUrl = searchParams.get('img') || searchParams.get('photo');
-
-  // Use the saved photo URL (external or local fallback)
-  const aiPhotoUrl = rawImgUrl ? decodeURIComponent(rawImgUrl) : '/sample-ai.png';
+  const aiPhotoUrl = searchParams.get('img')
+    ? decodeURIComponent(searchParams.get('img')!)
+    : searchParams.get('photo')
+    ? decodeURIComponent(searchParams.get('photo')!)
+    : null;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [cameraActive, setCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [cardVisible, setCardVisible] = useState(false);  // Hidden until user taps
-  const [needsIosPermission, setNeedsIosPermission] = useState(false);
+  const [cardVisible, setCardVisible] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   // Three.js refs
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cardGroupRef = useRef<THREE.Group | null>(null);
-  const aiPhotoMeshRef = useRef<THREE.Mesh | null>(null);
-  const shadowMeshRef = useRef<THREE.Mesh | null>(null);
-  const particlesRef = useRef<THREE.Points | null>(null);
+  const aiMeshRef = useRef<THREE.Mesh | null>(null);
+  const glowMeshRef = useRef<THREE.Mesh | null>(null);
   const animFrameId = useRef<number | null>(null);
 
-  const targetRotation = useRef({ x: 0.08, y: 0 });
-  const currentRotation = useRef({ x: 0.08, y: 0 });
-  const isDragging = useRef(false);
-  const lastTouch = useRef({ x: 0, y: 0 });
+  // Gyro smoothing
+  const targetRot = useRef({ x: 0, y: 0 });
+  const currentRot = useRef({ x: 0, y: 0 });
 
-  // ── 1. Rear Camera ─────────────────────────────────────────────────────────
+  // ── 1. Camera ──────────────────────────────────────────────────────────────
   useEffect(() => {
     let stream: MediaStream | null = null;
-    const start = async () => {
+    (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -54,247 +44,256 @@ export const ArExperience: React.FC = () => {
           await videoRef.current.play();
           setCameraActive(true);
         }
-      } catch (err: any) {
-        setCameraError(err.message || 'تعذر تشغيل الكاميرا');
-      }
-    };
-    start();
+      } catch {}
+    })();
     return () => { stream?.getTracks().forEach(t => t.stop()); };
   }, []);
 
-  // ── 2. Gyroscope ──────────────────────────────────────────────────────────
+  // ── 2. Gyroscope — auto-activate, no button ────────────────────────────────
   useEffect(() => {
-    const onOrientation = (e: DeviceOrientationEvent) => {
+    const applyOrientation = (e: DeviceOrientationEvent) => {
       if (e.gamma == null || e.beta == null) return;
-      targetRotation.current.x = THREE.MathUtils.clamp((e.beta - 45) * 0.015, -0.45, 0.45);
-      targetRotation.current.y = THREE.MathUtils.clamp(e.gamma * 0.02, -0.55, 0.55);
+      // beta = front-to-back tilt (-180 to 180), gamma = left-to-right (-90 to 90)
+      // clamp to ±0.35 rad for subtle parallax
+      targetRot.current.y = THREE.MathUtils.clamp(e.gamma * 0.018, -0.35, 0.35);
+      targetRot.current.x = THREE.MathUtils.clamp((e.beta - 45) * 0.012, -0.3, 0.3);
     };
 
-    const ios = typeof (window as any).DeviceOrientationEvent?.requestPermission === 'function';
-    if (ios) {
-      setNeedsIosPermission(true);
-    } else {
-      window.addEventListener('deviceorientation', onOrientation);
-      return () => window.removeEventListener('deviceorientation', onOrientation);
+    const isIos = typeof (window as any).DeviceOrientationEvent?.requestPermission === 'function';
+    if (!isIos) {
+      // Android / desktop: just listen directly
+      window.addEventListener('deviceorientation', applyOrientation);
+      return () => window.removeEventListener('deviceorientation', applyOrientation);
     }
-    return undefined;
+
+    // iOS: must request on user gesture — we hook into first touch anywhere
+    const requestOnFirstTouch = async () => {
+      try {
+        const res = await (window as any).DeviceOrientationEvent.requestPermission();
+        if (res === 'granted') {
+          window.addEventListener('deviceorientation', applyOrientation);
+        }
+      } catch {}
+      window.removeEventListener('touchstart', requestOnFirstTouch);
+      window.removeEventListener('pointerdown', requestOnFirstTouch);
+    };
+
+    window.addEventListener('touchstart', requestOnFirstTouch, { once: true });
+    window.addEventListener('pointerdown', requestOnFirstTouch, { once: true });
+
+    return () => {
+      window.removeEventListener('touchstart', requestOnFirstTouch);
+      window.removeEventListener('pointerdown', requestOnFirstTouch);
+      window.removeEventListener('deviceorientation', applyOrientation);
+    };
   }, []);
 
-  const requestIosGyro = async () => {
-    try {
-      const res = await (window as any).DeviceOrientationEvent.requestPermission();
-      if (res === 'granted') {
-        window.addEventListener('deviceorientation', (e: DeviceOrientationEvent) => {
-          if (e.gamma == null || e.beta == null) return;
-          targetRotation.current.x = THREE.MathUtils.clamp((e.beta - 45) * 0.015, -0.45, 0.45);
-          targetRotation.current.y = THREE.MathUtils.clamp(e.gamma * 0.02, -0.55, 0.55);
-        });
-        setNeedsIosPermission(false);
-      }
-    } catch {}
-  };
-
-  // ── 3. Load image via Canvas to bypass CORS (works for any URL) ──────────
-  const loadTextureViaCanvas = (url: string): Promise<THREE.CanvasTexture> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-
-      const useCanvas = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0);
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.colorSpace = THREE.SRGBColorSpace;
-        resolve(tex);
-      };
-
-      img.onload = useCanvas;
-      img.onerror = () => {
-        // If the external URL fails, try without crossOrigin
-        const fallbackImg = new Image();
-        fallbackImg.onload = () => {
-          img.src = ''; // discard first attempt
-          const canvas = document.createElement('canvas');
-          canvas.width = fallbackImg.naturalWidth || 600;
-          canvas.height = fallbackImg.naturalHeight || 400;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(fallbackImg, 0, 0);
-          const tex = new THREE.CanvasTexture(canvas);
-          tex.colorSpace = THREE.SRGBColorSpace;
-          resolve(tex);
+  // ── 3. Load image via Canvas (CORS-safe for any host) ─────────────────────
+  const loadTexture = (url: string): Promise<THREE.CanvasTexture> =>
+    new Promise((resolve) => {
+      const tryLoad = (src: string, useCrossOrigin: boolean) => {
+        const img = new Image();
+        if (useCrossOrigin) img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth || img.width;
+          c.height = img.naturalHeight || img.height;
+          c.getContext('2d')!.drawImage(img, 0, 0);
+          const t = new THREE.CanvasTexture(c);
+          t.colorSpace = THREE.SRGBColorSpace;
+          resolve(t);
         };
-        fallbackImg.onerror = () => {
-          // Generate a simple colored placeholder
-          const canvas = document.createElement('canvas');
-          canvas.width = 400; canvas.height = 300;
-          const ctx = canvas.getContext('2d')!;
-          ctx.fillStyle = '#2b060d';
-          ctx.fillRect(0, 0, 400, 300);
-          ctx.fillStyle = '#ff7700';
-          ctx.font = 'bold 24px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('AI Memory Photo', 200, 150);
-          resolve(new THREE.CanvasTexture(canvas));
+        img.onerror = () => {
+          if (useCrossOrigin) tryLoad(src, false);
+          else {
+            // solid fallback
+            const c = document.createElement('canvas');
+            c.width = 400; c.height = 300;
+            const ctx = c.getContext('2d')!;
+            const gr = ctx.createLinearGradient(0, 0, 400, 300);
+            gr.addColorStop(0, '#2b060d'); gr.addColorStop(1, '#5c1020');
+            ctx.fillStyle = gr; ctx.fillRect(0, 0, 400, 300);
+            ctx.fillStyle = '#FF8800'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('AI Memory Photo', 200, 150);
+            resolve(new THREE.CanvasTexture(c));
+          }
         };
-        fallbackImg.src = '/sample-ai.png';
+        img.src = src;
       };
-
-      img.src = url;
+      tryLoad(url, true);
     });
-  };
 
-  // ── 4. Three.js 3D Scene ──────────────────────────────────────────────────
+  // ── 4. Three.js scene ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const w = containerRef.current.clientWidth || window.innerWidth;
-    const h = containerRef.current.clientHeight || window.innerHeight;
+    const W = containerRef.current.clientWidth || window.innerWidth;
+    const H = containerRef.current.clientHeight || window.innerHeight;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    const cam = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
-    cam.position.set(0, 0, 4.4);
+    const cam = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
+    cam.position.set(0, 0, 4.2);
     cameraRef.current = cam;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
-    renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.3;
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0); // fully transparent
     rendererRef.current = renderer;
-
     containerRef.current.innerHTML = '';
     containerRef.current.appendChild(renderer.domElement);
 
     // Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 1.6));
-    const dir = new THREE.DirectionalLight(0xffffff, 2.2);
-    dir.position.set(3, 5, 4);
-    scene.add(dir);
-    const gold = new THREE.PointLight(0xff9900, 2.8, 8);
-    gold.position.set(-2, 1, 2.5);
-    scene.add(gold);
-    const bot = new THREE.PointLight(0xff5500, 1.2, 6);
-    bot.position.set(0, -2, 2);
-    scene.add(bot);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.8));
+    const sun = new THREE.DirectionalLight(0xfff5e0, 2.4);
+    sun.position.set(3, 5, 5);
+    scene.add(sun);
+    const glow = new THREE.PointLight(0xff8800, 3, 7);
+    glow.position.set(-1.5, 1, 3);
+    scene.add(glow);
 
+    // Card group — starts hidden
     const cardGroup = new THREE.Group();
-    cardGroup.visible = false; // HIDDEN by default
+    cardGroup.visible = false;
     scene.add(cardGroup);
     cardGroupRef.current = cardGroup;
 
-    const cardW = 3.1, cardH = 2.08;
-    const photoW = 1.14, photoH = 1.03, posY = 0.17;
-    const posX_left = -0.65, posX_right = 0.65;
+    const CARD_W = 3.0;
+    const CARD_H = 2.0;
 
-    // Base card (frame)
-    loadTextureViaCanvas('/print-frame-landscape.png').then(frameTex => {
-      const geo = new THREE.PlaneGeometry(cardW, cardH);
-      const mat = new THREE.MeshStandardMaterial({ map: frameTex, roughness: 0.35, side: THREE.DoubleSide });
-      cardGroup.add(new THREE.Mesh(geo, mat));
-      // Drop shadow
-      const sh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4 }));
-      sh.position.set(0, -0.06, -0.08);
-      sh.scale.set(1.03, 1.03, 1);
-      cardGroup.add(sh);
-    });
+    // ── Card base (white/cream frame) ──
+    const frameGeo = new THREE.BoxGeometry(CARD_W, CARD_H, 0.04);
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0xfdf6ec, roughness: 0.5, metalness: 0.02 });
+    cardGroup.add(new THREE.Mesh(frameGeo, frameMat));
 
-    // Left slot: Original Photo (flat on card)
-    const origUrl = searchParams.get('orig') ? decodeURIComponent(searchParams.get('orig')!) : '/sample-original.png';
-    loadTextureViaCanvas(origUrl).then(origTex => {
-      const mesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(photoW, photoH),
-        new THREE.MeshStandardMaterial({ map: origTex, roughness: 0.3 })
-      );
-      mesh.position.set(posX_left, posY, 0.02);
-      cardGroup.add(mesh);
-    });
+    // ── AI photo popping out of the card ──
+    // The photo fills most of the card (slightly inset)
+    const PHOTO_W = CARD_W * 0.88;
+    const PHOTO_H = CARD_H * 0.78;
 
-    // Right slot: AI Photo — DRAMATIC 3D POP-OUT
-    loadTextureViaCanvas(aiPhotoUrl).then(aiTex => {
-      const edgeMat = new THREE.MeshStandardMaterial({ color: 0xff8800, metalness: 0.9, roughness: 0.15 });
-      const faceMat = new THREE.MeshStandardMaterial({ map: aiTex, roughness: 0.2, metalness: 0.05 });
-      const materials = [edgeMat, edgeMat, edgeMat, edgeMat, faceMat, edgeMat];
+    if (aiPhotoUrl) {
+      loadTexture(aiPhotoUrl).then(tex => {
+        // 1. Flat base photo (on card surface)
+        const baseMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(PHOTO_W, PHOTO_H),
+          new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3 })
+        );
+        baseMesh.position.set(0, 0.1, 0.025);
+        cardGroup.add(baseMesh);
 
-      const aiMesh = new THREE.Mesh(new THREE.BoxGeometry(photoW, photoH, 0.1), materials);
-      aiMesh.position.set(posX_right, posY, 0.38);
-      cardGroup.add(aiMesh);
-      aiPhotoMeshRef.current = aiMesh;
+        // 2. Pop-out layer — slightly larger, elevated, transparent edges
+        const popMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(PHOTO_W, PHOTO_H),
+          new THREE.MeshStandardMaterial({
+            map: tex,
+            roughness: 0.15,
+            transparent: true,
+            opacity: 0.95,
+          })
+        );
+        popMesh.position.set(0, 0.1, 0.32); // floats above the card
+        popMesh.scale.set(1.0, 1.0, 1);
+        cardGroup.add(popMesh);
+        aiMeshRef.current = popMesh;
 
-      // Drop shadow from elevated photo
-      const shadowMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(photoW * 1.1, photoH * 1.1),
-        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55 })
-      );
-      shadowMesh.position.set(posX_right + 0.04, posY - 0.06, 0.03);
-      cardGroup.add(shadowMesh);
-      shadowMeshRef.current = shadowMesh;
+        // 3. Soft glow halo behind pop-out
+        const haloMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(PHOTO_W * 1.08, PHOTO_H * 1.08),
+          new THREE.MeshBasicMaterial({
+            color: 0xff7700,
+            transparent: true,
+            opacity: 0.18,
+            blending: THREE.AdditiveBlending,
+          })
+        );
+        haloMesh.position.set(0, 0.1, 0.28);
+        cardGroup.add(haloMesh);
+        glowMeshRef.current = haloMesh;
 
-      // Relief layer (further pop-out)
-      const reliefMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(photoW * 0.96, photoH * 0.96),
-        new THREE.MeshStandardMaterial({ map: aiTex, transparent: true, opacity: 0.9, roughness: 0.15 })
-      );
-      reliefMesh.position.set(posX_right, posY, 0.47);
-      cardGroup.add(reliefMesh);
-    });
-
-    // Golden sparkles around card
-    const pCount = 40;
-    const pGeo = new THREE.BufferGeometry();
-    const pPos = new Float32Array(pCount * 3);
-    for (let i = 0; i < pCount * 3; i += 3) {
-      pPos[i] = (Math.random() - 0.5) * cardW * 1.1;
-      pPos[i + 1] = (Math.random() - 0.5) * cardH * 1.1;
-      pPos[i + 2] = Math.random() * 0.8 + 0.1;
+        // 4. Drop shadow between pop-out and card
+        const shadowMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(PHOTO_W * 1.05, PHOTO_H * 1.05),
+          new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45 })
+        );
+        shadowMesh.position.set(0.05, 0.05, 0.22);
+        cardGroup.add(shadowMesh);
+      });
     }
+
+    // ── Gold border trim ──
+    const borderMat = new THREE.MeshStandardMaterial({ color: 0xffc247, metalness: 0.9, roughness: 0.12 });
+    // top & bottom bars
+    [CARD_H / 2, -CARD_H / 2].forEach(y => {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(CARD_W, 0.06, 0.06), borderMat);
+      bar.position.set(0, y, 0.02);
+      cardGroup.add(bar);
+    });
+    // left & right bars
+    [-CARD_W / 2, CARD_W / 2].forEach(x => {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.06, CARD_H, 0.06), borderMat);
+      bar.position.set(x, 0, 0.02);
+      cardGroup.add(bar);
+    });
+
+    // ── Sparkle particles ──
+    const N = 30;
+    const pPos = new Float32Array(N * 3);
+    for (let i = 0; i < N * 3; i += 3) {
+      pPos[i] = (Math.random() - 0.5) * CARD_W * 1.2;
+      pPos[i + 1] = (Math.random() - 0.5) * CARD_H * 1.2;
+      pPos[i + 2] = Math.random() * 0.6 + 0.1;
+    }
+    const pGeo = new THREE.BufferGeometry();
     pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
     const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
-      color: 0xffaa00, size: 0.04, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending,
+      color: 0xffcc44, size: 0.035, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending,
     }));
     cardGroup.add(particles);
-    particlesRef.current = particles;
 
+    // ── Animation loop ──
     const clock = new THREE.Clock();
     const animate = () => {
       animFrameId.current = requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
 
-      currentRotation.current.x += (targetRotation.current.x - currentRotation.current.x) * 0.08;
-      currentRotation.current.y += (targetRotation.current.y - currentRotation.current.y) * 0.08;
+      // Smooth gyro lerp
+      currentRot.current.x += (targetRot.current.x - currentRot.current.x) * 0.06;
+      currentRot.current.y += (targetRot.current.y - currentRot.current.y) * 0.06;
 
       if (cardGroupRef.current) {
-        cardGroupRef.current.position.y = Math.sin(t * 1.6) * 0.04;
-        cardGroupRef.current.rotation.x = currentRotation.current.x + Math.sin(t * 1.2) * 0.015;
-        cardGroupRef.current.rotation.y = currentRotation.current.y + Math.cos(t * 1.0) * 0.02;
+        // Fixed position — no floating, no drifting
+        cardGroupRef.current.position.set(0, 0, 0);
+        // Gyro tilt gives the 3D illusion
+        cardGroupRef.current.rotation.x = currentRot.current.x;
+        cardGroupRef.current.rotation.y = currentRot.current.y;
       }
 
-      if (aiPhotoMeshRef.current) {
-        const floatZ = 0.38 + Math.sin(t * 2.2) * 0.04;
-        aiPhotoMeshRef.current.position.z = floatZ;
-        if (shadowMeshRef.current) {
-          const s = 1 + (floatZ - 0.38) * 0.4;
-          shadowMeshRef.current.scale.set(s, s, 1);
-        }
+      // Pop-out photo breathes slightly (Z only)
+      if (aiMeshRef.current) {
+        aiMeshRef.current.position.z = 0.32 + Math.sin(t * 1.8) * 0.025;
+      }
+      if (glowMeshRef.current) {
+        (glowMeshRef.current.material as THREE.MeshBasicMaterial).opacity =
+          0.15 + Math.sin(t * 2.2) * 0.06;
       }
 
-      if (particlesRef.current) particlesRef.current.rotation.z = t * 0.05;
+      // Rotate sparkles slowly
+      particles.rotation.z = t * 0.04;
 
       renderer.render(scene, cam);
     };
     animate();
 
+    // Resize handler
     const onResize = () => {
       if (!containerRef.current) return;
-      const nw = containerRef.current.clientWidth || window.innerWidth;
-      const nh = containerRef.current.clientHeight || window.innerHeight;
-      cam.aspect = nw / nh;
+      const nW = containerRef.current.clientWidth || innerWidth;
+      const nH = containerRef.current.clientHeight || innerHeight;
+      cam.aspect = nW / nH;
       cam.updateProjectionMatrix();
-      renderer.setSize(nw, nh);
+      renderer.setSize(nW, nH);
     };
     window.addEventListener('resize', onResize);
 
@@ -305,153 +304,124 @@ export const ArExperience: React.FC = () => {
     };
   }, [aiPhotoUrl]);
 
-  // ── Show card when user taps the scan button ──────────────────────────────
+  // ── Reveal card on tap ────────────────────────────────────────────────────
   const handleReveal = () => {
     if (cardGroupRef.current) cardGroupRef.current.visible = true;
     setCardVisible(true);
   };
 
-  // ── Touch drag to rotate card ─────────────────────────────────────────────
-  const handlePointerDown = (e: React.PointerEvent) => {
+  // ── Manual drag to rotate (when gyro unavailable) ─────────────────────────
+  const isDragging = useRef(false);
+  const lastPointer = useRef({ x: 0, y: 0 });
+  const onPointerDown = (e: React.PointerEvent) => {
     if (!cardVisible) return;
     isDragging.current = true;
-    lastTouch.current = { x: e.clientX, y: e.clientY };
+    lastPointer.current = { x: e.clientX, y: e.clientY };
   };
-  const handlePointerMove = (e: React.PointerEvent) => {
+  const onPointerMove = (e: React.PointerEvent) => {
     if (!isDragging.current) return;
-    const dx = e.clientX - lastTouch.current.x;
-    const dy = e.clientY - lastTouch.current.y;
-    lastTouch.current = { x: e.clientX, y: e.clientY };
-    targetRotation.current.y = THREE.MathUtils.clamp(targetRotation.current.y + dx * 0.007, -0.85, 0.85);
-    targetRotation.current.x = THREE.MathUtils.clamp(targetRotation.current.x + dy * 0.007, -0.6, 0.6);
+    const dx = e.clientX - lastPointer.current.x;
+    const dy = e.clientY - lastPointer.current.y;
+    lastPointer.current = { x: e.clientX, y: e.clientY };
+    targetRot.current.y = THREE.MathUtils.clamp(targetRot.current.y + dx * 0.006, -0.55, 0.55);
+    targetRot.current.x = THREE.MathUtils.clamp(targetRot.current.x + dy * 0.006, -0.45, 0.45);
   };
-  const handlePointerUp = () => { isDragging.current = false; };
-
-  const handleReset = () => { targetRotation.current = { x: 0.08, y: 0 }; };
+  const onPointerUp = () => { isDragging.current = false; };
 
   const handleDownload = async () => {
+    if (!aiPhotoUrl) return;
+    setIsDownloading(true);
     try {
-      setIsDownloading(true);
       const a = document.createElement('a');
       a.href = aiPhotoUrl;
       a.download = `ai-memory-${Date.now()}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch {
-      window.open(aiPhotoUrl, '_blank');
-    } finally {
-      setIsDownloading(false);
-    }
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } catch { window.open(aiPhotoUrl, '_blank'); }
+    finally { setIsDownloading(false); }
   };
 
   return (
     <div
       className="fixed inset-0 bg-black overflow-hidden select-none font-sans touch-none"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
       dir="rtl"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
     >
-      {/* ── Camera Stream (always visible as background) ── */}
+      {/* Camera stream */}
       <video
-        ref={videoRef}
-        playsInline muted autoPlay
+        ref={videoRef} playsInline muted autoPlay
         className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-700 ${cameraActive ? 'opacity-100' : 'opacity-0'}`}
       />
-
-      {/* Dark ambient gradient when camera isn't available */}
       {!cameraActive && (
-        <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#1E050A] via-[#330812] to-[#120205] flex flex-col items-center justify-center gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-[#FFA940]">
-            <Smartphone className="w-7 h-7 animate-pulse" />
-          </div>
-          <p className="text-sm text-white/70 text-center max-w-xs">
-            {cameraError ? 'سيعمل العرض ثلاثي الأبعاد في الخلفية.' : 'جاري تشغيل الكاميرا...'}
-          </p>
-        </div>
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#1E050A] via-[#330812] to-[#120205]" />
       )}
 
-      {/* ── Three.js Canvas ── */}
+      {/* Three.js canvas overlay */}
       <div ref={containerRef} className="absolute inset-0 z-10 pointer-events-none" />
 
-      {/* ── BEFORE SCAN: Full-screen pulsing guide frame + CTA button ── */}
+      {/* ── BEFORE SCAN: viewfinder + big CTA ── */}
       {!cardVisible && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
-          {/* Viewfinder frame */}
-          <div className="relative w-4/5 max-w-xs aspect-[1.49] mb-8">
-            {/* Animated corner brackets */}
-            <div className="absolute -top-1 -right-1 w-7 h-7 border-t-[3px] border-r-[3px] border-[#FFA940] rounded-tr-lg" />
-            <div className="absolute -top-1 -left-1 w-7 h-7 border-t-[3px] border-l-[3px] border-[#FFA940] rounded-tl-lg" />
-            <div className="absolute -bottom-1 -right-1 w-7 h-7 border-b-[3px] border-r-[3px] border-[#FFA940] rounded-br-lg" />
-            <div className="absolute -bottom-1 -left-1 w-7 h-7 border-b-[3px] border-l-[3px] border-[#FFA940] rounded-bl-lg" />
-            {/* Scanning line */}
-            <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 h-px bg-gradient-to-r from-transparent via-[#FFA940] to-transparent shadow-[0_0_12px_#FFA940] animate-pulse" />
+          {/* Corner bracket viewfinder */}
+          <div className="relative w-4/5 max-w-sm aspect-[1.5] mb-10">
+            {['top-0 right-0 border-t-[3px] border-r-[3px] rounded-tr-xl',
+              'top-0 left-0 border-t-[3px] border-l-[3px] rounded-tl-xl',
+              'bottom-0 right-0 border-b-[3px] border-r-[3px] rounded-br-xl',
+              'bottom-0 left-0 border-b-[3px] border-l-[3px] rounded-bl-xl'
+            ].map((cls, i) => (
+              <div key={i} className={`absolute w-8 h-8 border-[#FFA940] ${cls}`} />
+            ))}
+            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-px bg-gradient-to-r from-transparent via-[#FFA940]/80 to-transparent animate-pulse" />
           </div>
-          {/* Scan CTA */}
+
           <button
             onClick={handleReveal}
-            className="pointer-events-auto flex flex-col items-center gap-3 active:scale-95 transition-transform"
+            className="pointer-events-auto flex flex-col items-center gap-4 active:scale-95 transition-transform"
           >
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FFA940] flex items-center justify-center shadow-2xl shadow-[#FF5C00]/50 animate-pulse">
-              <ScanLine className="w-9 h-9 text-white" />
+            <div className="relative w-22 h-22 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-[#FF5C00]/30 animate-ping" />
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FFA940] flex items-center justify-center shadow-2xl shadow-[#FF5C00]/60">
+                <ScanLine className="w-9 h-9 text-white" />
+              </div>
             </div>
-            <span className="text-white font-bold text-base tracking-wide drop-shadow-lg">
+            <span className="text-white font-bold text-lg tracking-wide drop-shadow-lg">
               اكتشف ذكرياتك ✨
             </span>
+            <span className="text-white/50 text-xs">وجّه الكاميرا على الكارت ثم اضغط</span>
           </button>
         </div>
       )}
 
-      {/* ── Top Bar (only shown after scan) ── */}
+      {/* ── TOP BAR (after scan) ── */}
       {cardVisible && (
-        <header className="absolute top-0 inset-x-0 z-30 p-4 pt-6 flex items-center justify-between pointer-events-auto bg-gradient-to-b from-black/80 via-black/30 to-transparent">
+        <header className="absolute top-0 inset-x-0 z-30 p-4 pt-6 flex items-center justify-between pointer-events-auto bg-gradient-to-b from-black/80 to-transparent">
           <a href="/" className="p-2.5 rounded-xl bg-black/40 border border-white/15 text-white/80 backdrop-blur-md active:scale-95 flex items-center gap-1 text-xs">
-            <ChevronLeft className="w-4 h-4" />
-            <span>رجوع</span>
+            <ChevronLeft className="w-4 h-4" /><span>رجوع</span>
           </a>
-
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#FF5C00] to-[#FFA940] flex items-center justify-center shadow-md">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#FF5C00] to-[#FFA940] flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-white leading-tight">AI 3D Memory</h1>
-              <p className="text-[10px] text-orange-200/70">صورة مجسمة ثلاثية الأبعاد</p>
+              <p className="text-sm font-bold text-white">AI 3D Memory</p>
+              <p className="text-[10px] text-orange-200/60">حرّك هاتفك لتشعر بالعمق</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            {needsIosPermission && (
-              <button onClick={requestIosGyro} className="px-3 py-1.5 rounded-full bg-[#FF5C00] text-white text-xs font-bold flex items-center gap-1.5 active:scale-95">
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>تفعيل الميلان</span>
-              </button>
-            )}
-            <button onClick={handleReset} className="p-2.5 rounded-xl bg-black/40 border border-white/15 text-white/70 backdrop-blur-md active:scale-95">
-              <RotateCcw className="w-4 h-4" />
-            </button>
-          </div>
+          <button onClick={() => { targetRot.current = { x: 0, y: 0 }; }}
+            className="p-2.5 rounded-xl bg-black/40 border border-white/15 text-white/70 backdrop-blur-md active:scale-95">
+            <RotateCcw className="w-4 h-4" />
+          </button>
         </header>
       )}
 
-      {/* ── Hint (only after scan) ── */}
+      {/* ── BOTTOM: single download button (after scan) ── */}
       {cardVisible && (
-        <div className="absolute top-20 inset-x-0 z-20 pointer-events-none flex justify-center">
-          <div className="px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-xs text-white/90 shadow-lg flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#FFA940]" />
-            <span>اسحب بإصبعك أو حرك هاتفك لمعاينة بروز الصورة 3D</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── Bottom: Single Clean Download Button (only after scan) ── */}
-      {cardVisible && (
-        <footer className="absolute bottom-0 inset-x-0 z-30 p-5 pb-8 pointer-events-auto bg-gradient-to-t from-black/90 via-black/50 to-transparent flex justify-center">
+        <footer className="absolute bottom-0 inset-x-0 z-30 p-5 pb-8 pointer-events-auto bg-gradient-to-t from-black/90 to-transparent flex justify-center">
           <button
             onClick={handleDownload}
-            disabled={isDownloading}
-            className="w-full max-w-xs py-4 px-6 rounded-2xl bg-gradient-to-r from-[#FF5C00] to-[#FFA940] text-white font-bold text-base shadow-xl shadow-[#FF5C00]/30 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+            disabled={isDownloading || !aiPhotoUrl}
+            className="w-full max-w-xs py-4 px-6 rounded-2xl bg-gradient-to-r from-[#FF5C00] to-[#FFA940] text-white font-bold text-base shadow-xl shadow-[#FF5C00]/30 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
           >
             <Download className="w-5 h-5" />
             <span>{isDownloading ? 'جاري الحفظ...' : 'حفظ الصورة بجهازك'}</span>
