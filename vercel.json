@@ -8,10 +8,22 @@
       "maxDuration": 60
     }
   },
+  "headers": [
+    {
+      "source": "/ar.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"
+    },
+    {
+      "source": "/ar.html",
+      "destination": "/ar.html"
     },
     {
       "source": "/(.*)",
