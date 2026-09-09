@@ -7,31 +7,23 @@ export const config = {
   },
 };
 
-const BASE_PROMPT = `Using the uploaded photo as the exact reference for both people, regenerate a photorealistic image of the same two individuals.
-CRITICAL POSE & COMPOSITION PRESERVATION:
-- Strictly preserve the exact pose, body posture, gestures, arm/hand placement, and physical orientation of both individuals as seen in the original photo.
-- Maintain their exact positions relative to each other (who is on the left and who is on the right, how they stand or sit, head tilts, and body angles).
-- Do NOT alter their poses or invent new body positions. The composition, framing, and physical postures must match the original photo as closely as possible.
-- Preserve their facial identity, unique facial features, skin tone, eye shape, and hairstyle so they remain immediately and clearly recognizable as the same people.
-- Keep their original clothing colors and style unless the scene requires a natural adjustment.
-- Maintain a warm, cinematic, editorial photography look with soft natural lighting, sharp focus on both faces, and genuine facial expressions matching the original photo.
-- Do not add any extra people. High detail, professional photo quality, 4K.`;
+const BASE_PROMPT = `Using the uploaded photo as the exact identity reference for both people, regenerate a photorealistic image of the same two individuals — preserve their facial identity, unique features, skin tone, and hairstyle so they remain clearly recognizable as the same people. Keep their original clothing colors and style unless the scene requires a natural adjustment. Maintain a warm, cinematic, editorial photography look with soft natural lighting, sharp focus on both faces, and a joyful, affectionate interaction between the two subjects (natural pose, genuine smile). Do not add any extra people. High detail, professional photo quality, 4K.`;
 
 const EXPERIENCE_PROMPTS = {
-  younger: `Age transformation (strictly maintaining original poses): Keep the child's apparent age and posture exactly the same as in the original photo. Reduce the parent's facial apparent age by approximately 15–20 years — smoother skin, fuller and darker hair (remove gray if present), more youthful facial structure — while keeping the parent clearly recognizable as the same person (same face shape, eyes, nose, smile). The parent and child must maintain their exact body posture, stance, hand positions, and spatial relationship from the reference photo without changing poses.`,
-  older: `Age transformation (strictly maintaining original poses): Age the child up to look like a young adult / recent graduate, approximately 20–24 years old — mature facial proportions — while clearly preserving the child's original facial identity (same eyes, face shape, smile, hair color/texture, just matured) and keeping their original body pose and stance. Simultaneously reduce the parent's facial apparent age by approximately 10–15 years — smoother skin, youthful facial features — while keeping the parent clearly recognizable. Both subjects must keep their exact relative positions, stance, gestures, and overall body posture from the original photo.`,
+  younger: `Age transformation: keep the child's apparent age exactly the same as in the original photo. Reduce the parent's apparent age by approximately 15–20 years — smoother skin, fuller and darker hair (remove gray if present), more youthful facial structure — while keeping the parent clearly recognizable as the same person (same face shape, eyes, nose, smile). The parent should now look youthful, energetic, close in age to a young adult, standing/sitting naturally next to the child.`,
+  older: `Age transformation: age the child up to look like a young adult / recent graduate, approximately 20–24 years old — mature facial proportions, adult height and posture — while clearly preserving the child's original facial identity (same eyes, face shape, smile, hair color/texture, just matured). Simultaneously reduce the parent's apparent age by approximately 10–15 years — smoother skin, more youthful hair and posture — while keeping the parent clearly recognizable as the same person. The goal is for the two subjects to now appear close in age to each other, like siblings or peers, while still visibly being the same two people from the original photo.`,
 };
 
 const LOCATION_PROMPTS = {
-  classroom: `Place both subjects inside a bright modern classroom while retaining their exact poses and positions: orange accent wall, large whiteboard behind them, wooden desks and bookshelves, soft warm daylight streaming through a window, cozy education-brand aesthetic.`,
-  'school-yard': `Place both subjects outdoors in a school yard at golden-hour sunset while retaining their exact poses and positions: school building and fence softly blurred in the background, warm backlit sun flare, basketball hoop visible, nostalgic warm orange tones.`,
-  'lab-room': `Place both subjects in a science lab room while retaining their exact poses and positions: glass beakers and test tubes with amber liquid on the bench beside them, blurred lab equipment and posters in the background, bright clinical lighting mixed with warm accents.`,
-  library: `Place both subjects standing in a long library aisle while retaining their exact poses and positions: tall orange bookshelves lining both sides, bright fluorescent ceiling lights, glossy reflective floor, deep symmetrical perspective toward the background.`,
-  graduation: `Place both subjects in a graduation-ceremony atmosphere while retaining their exact poses and positions: soft bokeh crowd background, confetti and a graduation cap tossed in the air around them, celebratory warm lighting, festive joyful mood.`,
-  trip: `Place both subjects outdoors at the Giza Pyramids in Egypt during golden sunset while retaining their exact poses and positions: pyramids silhouetted in the warm-toned desert background, soft sand foreground, travel-photography look with warm orange/brown color grading.`,
+  classroom: `Place both subjects inside a bright modern classroom: orange accent wall, large whiteboard behind them, wooden desks and bookshelves, soft warm daylight streaming through a window, cozy education-brand aesthetic.`,
+  'school-yard': `Place both subjects outdoors in a school yard at golden-hour sunset: school building and fence softly blurred in the background, warm backlit sun flare, basketball hoop visible, nostalgic warm orange tones.`,
+  'lab-room': `Place both subjects in a science lab room: glass beakers and test tubes with amber liquid on the bench beside them, blurred lab equipment and posters in the background, bright clinical lighting mixed with warm accents.`,
+  library: `Place both subjects standing in a long library aisle: tall orange bookshelves lining both sides, bright fluorescent ceiling lights, glossy reflective floor, deep symmetrical perspective toward the background.`,
+  graduation: `Place both subjects in a graduation-ceremony atmosphere: soft bokeh crowd background, confetti and a graduation cap tossed in the air around them, celebratory warm lighting, festive joyful mood.`,
+  trip: `Place both subjects outdoors at the Giza Pyramids in Egypt during golden sunset: pyramids silhouetted in the warm-toned desert background, soft sand foreground, travel-photography look with warm orange/brown color grading.`,
 };
 
-const NEGATIVE_PROMPT = 'changed poses, altered posture, different body positions, swapped positions, repositioned arms or hands, extra people, text overlays, watermarks, distorted faces, unrealistic proportions, extra limbs, deformed fingers';
+const NEGATIVE_PROMPT = 'no extra people, no text overlays, no watermarks, no distorted faces, no unrealistic proportions';
 
 // Candidate models in order of priority
 const CANDIDATE_MODELS = [
