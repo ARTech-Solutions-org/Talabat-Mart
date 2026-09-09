@@ -7,39 +7,48 @@ export const config = {
   },
 };
 
-const BASE_PROMPT = `Using the uploaded photo as the exact identity reference for both people, regenerate a photorealistic image of the same two individuals.
-
-CRITICAL SUBJECT IDENTIFICATION INSTRUCTION:
-First, carefully analyze the two individuals in the uploaded reference photo:
-- Person 1 (The older / more mature person): Look for more mature facial features, adult bone structure, facial hair/stubble, or older appearance. If both individuals are similar in age (e.g. friends, peers, or brothers), designate the person on the LEFT as Person 1.
-- Person 2 (The younger / less mature person): Look for younger, more youthful, or child/teen facial features and smaller proportions. If both individuals are similar in age, designate the person on the RIGHT as Person 2.
-- KEEP RELATIVE POSITIONS: Maintain Person 1 on the left and Person 2 on the right so identities are never swapped or confused.
-
-IDENTITY PRESERVATION:
-Preserve both individuals' exact facial identity, eye shape, nose, distinct features, skin tone, and hair texture so they remain 100% clearly recognizable as the same people. Keep their original clothing colors and style unless the scene requires a natural adjustment. Maintain a warm, cinematic, editorial photography look with soft natural lighting, sharp focus on both faces, and a joyful, genuine smile. Do not add any extra people. High detail, professional photo quality, 4K.`;
-
 const EXPERIENCE_PROMPTS = {
-  younger: `AGE TRANSFORMATION — MAKE THE OLDER PERSON YOUNGER:
-- For Person 1 (the older / adult subject, or person on the left): Visually de-age Person 1 by approximately 15–20 years. Give Person 1 smooth, youthful, radiant skin, darker/fuller hair without gray, and an energetic young-adult appearance (as if they traveled back in time to their youth) — WHILE STRICTLY PRESERVING their facial bone structure, eye shape, smile, and identity so they are unmistakably the younger version of themselves.
-- For Person 2 (the younger / child subject, or person on the right): KEEP Person 2 at their EXACT same original age and facial features from the reference photo without aging them.
-- Interaction: Both subjects now appear close in age like peers or young friends, interacting warmly and happily together in the scene.`,
+  younger: `2. AGE TRANSFORMATION — MAKE THE ADULT PARENT YOUNGER:
+- Identify the adult parent in the photo (the person with mature adult facial features, beard/stubble, or taller adult build, regardless of whether they stand on the left or right).
+- TRANSFORM the adult parent into a young schoolchild / teenager (approximately 10–13 years old), turning them into a kid alongside their child! Give them youthful smooth skin, full youthful hair without gray or beard, and a cheerful kid/teen appearance, while preserving their signature eye shape, smile, and facial resemblance so they are unmistakably the younger version of themselves.
+- The younger child in the reference photo remains at their same young age.
+- Both subjects now look like two happy school-age peers/friends laughing and interacting warmly together.`,
 
-  older: `AGE TRANSFORMATION — MAKE THE YOUNGER PERSON GROW UP:
-- For Person 2 (the younger / child subject, or person on the right): Age Person 2 UP into an accomplished young adult / university graduate (approximately 20–24 years old). Give them mature adult facial proportions, adult height, and a confident adult demeanor — WHILE STRICTLY PRESERVING their core facial identity, eye shape, nose, smile, and distinct features matured naturally into adulthood.
-- For Person 1 (the older / adult subject, or person on the left): Keep Person 1 clearly recognizable and proudly celebrating together (slightly refreshed and rejuvenated by 5–10 years so they look vibrant, proud, and energized).
-- Interaction: Person 2 is now grown up standing proudly beside Person 1 as an accomplished adult graduate/peer, sharing a proud, celebratory milestone moment.`,
+  older: `2. AGE TRANSFORMATION — MAKE THE CHILD GROW UP INTO AN ADULT GRADUATE:
+- Identify the child / younger person in the photo (the smaller person with youthful/childlike features, regardless of whether they stand on the left or right).
+- AGE this child UP into a tall, accomplished young adult university graduate (approximately 21–24 years old) wearing a graduation gown or smart adult outfit. Give them mature adult facial proportions and confident adult posture, while clearly preserving their core facial identity, eye shape, and smile matured naturally into adulthood.
+- The adult parent stands proudly beside their grown-up child, celebrating this proud milestone together.
+- Both subjects share a celebratory, proud family moment.`,
 };
 
 const LOCATION_PROMPTS = {
-  classroom: `Place both subjects inside a bright modern classroom: orange accent wall, large whiteboard behind them, wooden desks and bookshelves, soft warm daylight streaming through a window, cozy education-brand aesthetic.`,
-  'school-yard': `Place both subjects outdoors in a school yard at golden-hour sunset: school building and fence softly blurred in the background, warm backlit sun flare, basketball hoop visible, nostalgic warm orange tones.`,
-  'lab-room': `Place both subjects in a science lab room: glass beakers and test tubes with amber liquid on the bench beside them, blurred lab equipment and posters in the background, bright clinical lighting mixed with warm accents.`,
-  library: `Place both subjects standing in a long library aisle: tall orange bookshelves lining both sides, bright fluorescent ceiling lights, glossy reflective floor, deep symmetrical perspective toward the background.`,
-  graduation: `Place both subjects in a graduation-ceremony atmosphere: soft bokeh crowd background, confetti and a graduation cap tossed in the air around them, celebratory warm lighting, festive joyful mood.`,
-  trip: `Place both subjects outdoors at the Giza Pyramids in Egypt during golden sunset: pyramids silhouetted in the warm-toned desert background, soft sand foreground, travel-photography look with warm orange/brown color grading.`,
+  classroom: `Inside a bright, modern school classroom: an orange accent wall, a large whiteboard with math/science sketches, student wooden desks and tidy bookshelves, soft warm daylight streaming through large windows, education photobooth aesthetic.`,
+  'school-yard': `Outdoors in a school yard at golden-hour sunset: a basketball court hoop, blurred school building and sports fence in the background, warm backlight sun flare, nostalgic autumn/orange tones.`,
+  'lab-room': `Inside a science lab room: glass beakers and test tubes with amber and colorful liquids on the bench, blurred lab equipment and science posters in the background, bright clean lighting.`,
+  library: `Inside a grand modern library aisle: tall wooden and orange bookshelves lining both sides, warm overhead lamps, reflective floor, deep symmetrical perspective.`,
+  graduation: `At a university graduation ceremony: soft bokeh crowd background, floating graduation cap and celebratory confetti in the air, warm festive lighting, joyful celebratory mood.`,
+  trip: `Outdoors on a desert travel adventure at the Giza Pyramids in Egypt during golden sunset: pyramids silhouetted in the warm desert background, soft sand foreground, travel-photography look with warm orange/brown color grading.`,
 };
 
-const NEGATIVE_PROMPT = 'no extra people, no text overlays, no watermarks, no distorted faces, no unrealistic proportions';
+function buildPrompt(experience, location) {
+  const expText = EXPERIENCE_PROMPTS[experience];
+  const locText = LOCATION_PROMPTS[location];
+
+  return `PRIMARY DIRECTIVE: Generate a brand-new photorealistic image that transforms the two individuals from the uploaded reference photo according to the following instructions:
+
+1. COMPLETE BACKGROUND REPLACEMENT (MANDATORY):
+Completely REMOVE and DISCARD the original background and setting from the uploaded photo. Do NOT keep any walls, furniture, rooms, or outdoor scenery from the original photo.
+The new scene MUST take place entirely within this new environment:
+${locText}
+
+${expText}
+
+3. IDENTITY & PHOTOREALISM:
+- Keep the distinctive facial resemblance (eye shape, smile, nose, skin tone) of both individuals from the reference photo so their family instantly recognizes them at their new transformed ages.
+- Dress both individuals in new, clean clothes that fit the new environment (school/casual clothes for classroom/yard, graduation gown/suit for graduation, travel clothes for trip).
+- Warm, cinematic editorial photography, natural lighting, sharp focus on both faces, genuine joyful smiles. High detail, 4K quality.
+- Negative constraints: no extra people, no text overlays, no watermarks, no distorted faces, no unrealistic proportions.`;
+}
 
 // Candidate models in order of priority
 const CANDIDATE_MODELS = [
@@ -65,19 +74,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Choose an experience and a location first.' });
   }
 
-  const experiencePrompt = EXPERIENCE_PROMPTS[experience];
-  const locationPrompt = LOCATION_PROMPTS[location];
-
-  if (!experiencePrompt || !locationPrompt) {
+  if (!EXPERIENCE_PROMPTS[experience] || !LOCATION_PROMPTS[location]) {
     return res.status(400).json({ error: 'Invalid experience or location choice.' });
   }
 
-  const prompt = [
-    BASE_PROMPT,
-    experiencePrompt,
-    locationPrompt,
-    `Negative: ${NEGATIVE_PROMPT}`,
-  ].join('\n\n');
+  const prompt = buildPrompt(experience, location);
 
   let cleanMime = mimeType;
   let cleanBase64 = imageBase64;
