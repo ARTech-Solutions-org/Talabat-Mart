@@ -1,11 +1,21 @@
 {
   "version": 2,
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install",
   "buildCommand": "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/memory-booth run build",
   "outputDirectory": "artifacts/memory-booth/dist/public",
   "functions": {
     "api/**/*": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
