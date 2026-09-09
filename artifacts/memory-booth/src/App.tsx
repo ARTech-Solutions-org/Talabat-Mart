@@ -904,7 +904,7 @@ function Home() {
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      const arUrl = `${window.location.origin}/ar?img=${encodeURIComponent(data.url)}`;
+      const arUrl = `${window.location.origin}/ar.html?img=${encodeURIComponent(data.url)}`;
       setQrUrl(arUrl);
       setSaved(true);
       showToast('Memory saved! Scan for 3D AR.');
