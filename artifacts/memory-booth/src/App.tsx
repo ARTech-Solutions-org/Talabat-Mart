@@ -524,6 +524,7 @@ function ResultStep({
         <motion.button
           type="button"
           style={pos(337, 1548, 406, 122)}
+          className={isUploading ? 'opacity-75 pointer-events-none' : ''}
           whileTap={{ scale: 0.95 }}
           onClick={onSave}
           disabled={isUploading}
@@ -533,7 +534,6 @@ function ResultStep({
           data-testid="button-save-memory"
         >
           <img src="/design-ref/frame7/save%20memory.png" alt="Save" className="w-full h-full object-contain" />
-          {isUploading && <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-2xl">Saving...</span>}
         </motion.button>
 
         <motion.button
