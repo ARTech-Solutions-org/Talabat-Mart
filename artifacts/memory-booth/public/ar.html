@@ -12,7 +12,16 @@
     Physical target: 102 × 152 mm printed photo card
     Anchor system   : target width = 1 unit  →  height = 152/102 ≈ 1.49 units
   -->
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+  <!-- MindAR loaded dynamically so we can guarantee it's ready before startAR() runs -->
+  <script>
+    (function () {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+      s.onload  = function () { window.__mindARReady = true; if (window.__onMindARReady) window.__onMindARReady(); };
+      s.onerror = function () { console.error('Failed to load MindAR from CDN'); };
+      document.head.appendChild(s);
+    })();
+  </script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -518,21 +527,31 @@ async function startAR() {
   });
 }
 
-// Start on DOMContentLoaded
-startAR().catch(err => {
-  console.error('[AR] start failed:', err);
-  setStatus('خطأ في تشغيل الكاميرا', 'lost');
-  const ls = $('loading-screen');
-  ls.innerHTML = `
-    <p style="color:#ff5252;font-size:15px;text-align:center;padding:24px;">
-      تعذّر تشغيل الكاميرا.<br>
-      <span style="color:rgba(255,255,255,.5);font-size:12px;">
-        ${err?.message || 'تأكد من السماح بالوصول للكاميرا'}
-      </span>
-    </p>
-    <a href="/" style="color:#FFA940;font-size:14px;text-decoration:none;">← رجوع</a>
-  `;
-});
+// ── Safe launch: wait for MindAR CDN script to finish loading ──────────────
+function launchAR() {
+  startAR().catch(err => {
+    console.error('[AR] start failed:', err);
+    setStatus('خطأ في تشغيل الكاميرا', 'lost');
+    const ls = $('loading-screen');
+    ls.innerHTML = `
+      <p style="color:#ff5252;font-size:15px;text-align:center;padding:24px;">
+        تعذّر تشغيل الكاميرا.<br>
+        <span style="color:rgba(255,255,255,.5);font-size:12px;">
+          ${err?.message || 'تأكد من السماح بالوصول للكاميرا'}
+        </span>
+      </p>
+      <a href="/" style="color:#FFA940;font-size:14px;text-decoration:none;">← رجوع</a>
+    `;
+  });
+}
+
+if (window.__mindARReady) {
+  // Script already loaded (cached)
+  launchAR();
+} else {
+  // Wait for dynamic script's onload callback
+  window.__onMindARReady = launchAR;
+}
 </script>
 </body>
 </html>
