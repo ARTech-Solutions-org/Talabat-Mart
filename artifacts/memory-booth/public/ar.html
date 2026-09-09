@@ -137,20 +137,19 @@
     #status-dot.loading { background: #FFA940; animation: blink 1s infinite; }
     @keyframes blink { 0%,100%{ opacity:1; } 50%{ opacity:.3; } }
 
-    /* ── Bottom action bar ─────────────────────────────────────────────── */
+    /* ── Bottom action bar (always visible for user convenience) ─────────── */
     #action-bar {
       position: fixed;
       bottom: 0; inset-x: 0;
       z-index: 50;
       padding: 16px 24px;
       padding-bottom: max(24px, calc(16px + env(safe-area-inset-bottom)));
-      background: linear-gradient(to top, rgba(0,0,0,.92) 0%, transparent 100%);
+      background: linear-gradient(to top, rgba(0,0,0,.92) 0%, rgba(0,0,0,.4) 70%, transparent 100%);
       display: flex; justify-content: center;
-      opacity: 0; transform: translateY(20px);
-      transition: opacity .4s, transform .4s;
-      pointer-events: none;
+      opacity: 1; transform: translateY(0);
+      pointer-events: auto;
+      transition: opacity .3s, transform .3s;
     }
-    #action-bar.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
     #btn-download {
       width: 100%; max-width: 360px;
@@ -161,7 +160,7 @@
       display: flex; align-items: center; justify-content: center; gap: 12px;
       cursor: pointer;
       box-shadow: 0 8px 32px rgba(255,92,0,.45);
-      transition: transform .15s, box-shadow .15s;
+      transition: transform .15s, box-shadow .15s, opacity .2s;
       -webkit-tap-highlight-color: transparent;
     }
     #btn-download:active { transform: scale(.97); box-shadow: 0 4px 16px rgba(255,92,0,.3); }
@@ -639,17 +638,68 @@ function tick(delta) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Download
+// Download (always available with instant visual feedback & blob download)
 // ─────────────────────────────────────────────────────────────────────────────
-function downloadPhoto() {
-  if (!imgUrl) { alert('لا توجد صورة للحفظ'); return; }
-  const a  = document.createElement('a');
-  a.href   = imgUrl;
-  a.target = '_blank';
-  a.download = `ai-memory-${Date.now()}.jpg`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+async function downloadPhoto() {
+  if (!imgUrl) {
+    alert('لا توجد صورة للحفظ');
+    return;
+  }
+  const btn = $('btn-download');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.75';
+    btn.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spinner" style="border:none;animation:spin 0.8s linear infinite;">
+        <circle cx="12" cy="12" r="10" stroke-opacity="0.25" stroke-width="3"></circle>
+        <path d="M12 2a10 10 0 0 1 10 10" stroke-width="3"></path>
+      </svg>
+      جاري التحميل...
+    `;
+  }
+
+  try {
+    if (imgUrl.startsWith('data:')) {
+      const a = document.createElement('a');
+      a.href = imgUrl;
+      a.download = `talabat-memory-${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      try {
+        const res = await fetch(imgUrl);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `talabat-memory-${Date.now()}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } catch {
+        window.open(imgUrl, '_blank');
+      }
+    }
+  } finally {
+    setTimeout(() => {
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.innerHTML = `
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          تم الحفظ بجهازك ✓
+        `;
+        setTimeout(() => {
+          if (btn) btn.innerHTML = originalHtml;
+        }, 2500);
+      }
+    }, 600);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -680,14 +730,12 @@ async function startAR() {
   // ── Target detected ───────────────────────────────────────────────────────
   anchor.onTargetFound = () => {
     $('scan-overlay').classList.add('hidden');
-    $('action-bar').classList.add('visible');
     setStatus('الكارت مكتشف ✓', 'found');
   };
 
   // ── Target lost ───────────────────────────────────────────────────────────
   anchor.onTargetLost = () => {
     $('scan-overlay').classList.remove('hidden');
-    $('action-bar').classList.remove('visible');
     setStatus('جاري البحث عن الكارت...', 'lost');
   };
 
@@ -727,30 +775,59 @@ async function startAR() {
 if (!window.MINDAR || !window.MINDAR.IMAGE) {
   const ls = $('loading-screen');
   ls.innerHTML = `
-    <p style="color:#ff5252;font-size:15px;text-align:center;padding:24px;">
-      تعذّر تحميل مكتبة AR.<br>
-      <span style="color:rgba(255,255,255,.5);font-size:12px;">
-        تأكد من اتصالك بالإنترنت ثم أعد تحميل الصفحة.
-      </span>
-    </p>
-    <button onclick="location.reload()" style="margin-top:12px;padding:10px 24px;border-radius:12px;background:#FFA940;border:none;color:#000;font-weight:700;font-size:14px;cursor:pointer;">
-      إعادة التحميل
-    </button>
-    <a href="/" style="display:block;margin-top:16px;color:#FFA940;font-size:14px;text-decoration:none;">← رجوع</a>
+    <div style="max-width:380px;width:90%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:24px;padding:28px 20px;text-align:center;backdrop-filter:blur(20px);box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+      ${imgUrl ? `
+        <div style="width:130px;height:130px;margin:0 auto 16px;border-radius:20px;overflow:hidden;border:2px solid #FF5C00;box-shadow:0 10px 25px rgba(255,92,0,0.35);">
+          <img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;" alt="Memory Photo" />
+        </div>
+      ` : ''}
+      <h3 style="color:#fff;font-size:18px;font-weight:700;margin:0 0 8px;">صورتك جاهزة للحفظ ✨</h3>
+      <p style="color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;margin:0 0 20px;">
+        يمكنك حفظ صورتك التذكارية مباشرة بجهازك الآن:
+      </p>
+      <button onclick="downloadPhoto()" style="width:100%;padding:16px 20px;border:none;border-radius:16px;background:linear-gradient(135deg, #FF5C00 0%, #FFA940 100%);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 8px 24px rgba(255,92,0,0.4);margin-bottom:12px;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        حفظ الصورة بجهازك
+      </button>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
+        <button onclick="location.reload()" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.8);padding:8px 16px;border-radius:12px;font-size:12px;cursor:pointer;">
+          إعادة المحاولة
+        </button>
+        <a href="/" style="display:inline-flex;align-items:center;color:#FFA940;font-size:12px;text-decoration:none;padding:8px 16px;">
+          ← رجوع
+        </a>
+      </div>
+    </div>
   `;
 } else {
   startAR().catch(err => {
     console.error('[AR] start failed:', err);
-    setStatus('خطأ في تشغيل الكاميرا', 'lost');
+    setStatus('تم إيقاف الكاميرا', 'lost');
     const ls = $('loading-screen');
     ls.innerHTML = `
-      <p style="color:#ff5252;font-size:15px;text-align:center;padding:24px;">
-        تعذّر تشغيل الكاميرا.<br>
-        <span style="color:rgba(255,255,255,.5);font-size:12px;">
-          ${err?.message || 'تأكد من السماح بالوصول للكاميرا'}
-        </span>
-      </p>
-      <a href="/" style="display:block;margin-top:16px;color:#FFA940;font-size:14px;text-decoration:none;">← رجوع</a>
+      <div style="max-width:380px;width:90%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:24px;padding:28px 20px;text-align:center;backdrop-filter:blur(20px);box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+        ${imgUrl ? `
+          <div style="width:130px;height:130px;margin:0 auto 16px;border-radius:20px;overflow:hidden;border:2px solid #FF5C00;box-shadow:0 10px 25px rgba(255,92,0,0.35);">
+            <img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;" alt="Memory Photo" />
+          </div>
+        ` : ''}
+        <h3 style="color:#fff;font-size:18px;font-weight:700;margin:0 0 8px;">صورتك جاهزة للحفظ ✨</h3>
+        <p style="color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;margin:0 0 20px;">
+          لم يتم تفعيل إذن الكاميرا للواقع المعزز، ولكن يمكنك تنزيل صورتك التذكارية مباشرة بجهازك:
+        </p>
+        <button onclick="downloadPhoto()" style="width:100%;padding:16px 20px;border:none;border-radius:16px;background:linear-gradient(135deg, #FF5C00 0%, #FFA940 100%);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 8px 24px rgba(255,92,0,0.4);margin-bottom:12px;">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          حفظ الصورة بجهازك
+        </button>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
+          <button onclick="location.reload()" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.8);padding:8px 16px;border-radius:12px;font-size:12px;cursor:pointer;">
+            إعادة محاولة الكاميرا
+          </button>
+          <a href="/" style="display:inline-flex;align-items:center;color:#FFA940;font-size:12px;text-decoration:none;padding:8px 16px;">
+            ← رجوع للكشك
+          </a>
+        </div>
+      </div>
     `;
   });
 }

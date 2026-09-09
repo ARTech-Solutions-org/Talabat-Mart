@@ -425,11 +425,32 @@ export const ArExperience: React.FC = () => {
     if (!imgUrl) return;
     setIsDL(true);
     try {
-      const a = document.createElement('a');
-      a.href = imgUrl; a.download = `ai-memory-${Date.now()}.jpg`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    } catch { window.open(imgUrl, '_blank'); }
-    finally { setIsDL(false); }
+      if (imgUrl.startsWith('data:')) {
+        const a = document.createElement('a');
+        a.href = imgUrl;
+        a.download = `talabat-memory-${Date.now()}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        try {
+          const res = await fetch(imgUrl);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = `talabat-memory-${Date.now()}.jpg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch {
+          window.open(imgUrl, '_blank');
+        }
+      }
+    } finally {
+      setTimeout(() => setIsDL(false), 1200);
+    }
   };
 
   return (
@@ -445,16 +466,41 @@ export const ArExperience: React.FC = () => {
         </div>
       )}
 
-      {/* Error */}
+      {/* Error / Camera Permission Denied - Friendly Photo Download Fallback */}
       {phase === 'error' && (
-        <div className="absolute inset-0 z-40 bg-[#0d0205] flex flex-col items-center justify-center gap-4 p-8 text-center">
-          <p className="text-red-400 text-base font-bold">تعذّر تشغيل الكاميرا</p>
-          <p className="text-white/50 text-sm">{errorMsg}</p>
-          <button onClick={() => location.reload()}
-            className="mt-2 px-6 py-3 rounded-xl bg-[#FFA940] text-black font-bold text-sm">
-            إعادة المحاولة
-          </button>
-          <a href="/" className="text-[#FFA940] text-sm">← رجوع</a>
+        <div className="absolute inset-0 z-40 bg-[#0d0205]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-full max-w-sm bg-white/5 border border-white/12 rounded-3xl p-6 flex flex-col items-center shadow-2xl">
+            {imgUrl && (
+              <div className="w-36 h-36 mb-4 rounded-2xl overflow-hidden border-2 border-[#FF5C00] shadow-[0_8px_25px_rgba(255,92,0,0.35)]">
+                <img src={imgUrl} alt="Memory Preview" className="w-full h-full object-cover" />
+              </div>
+            )}
+            <h3 className="text-lg font-bold text-white mb-1.5">صورتك جاهزة للحفظ ✨</h3>
+            <p className="text-white/65 text-xs leading-relaxed mb-6">
+              لم يتم تفعيل إذن الكاميرا لتجربة الواقع المعزز 3D، ولكن يمكنك تنزيل صورتك التذكارية مباشرة بجهازك:
+            </p>
+
+            <button
+              onClick={handleDownload}
+              disabled={isDownloading || !imgUrl}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF5C00] to-[#FFA940] text-white font-bold text-base shadow-xl shadow-[#FF5C00]/30 flex items-center justify-center gap-2.5 mb-3 active:scale-95 transition-all disabled:opacity-50"
+            >
+              <Download className="w-5 h-5" />
+              {isDownloading ? 'جاري الحفظ...' : 'حفظ الصورة بجهازك'}
+            </button>
+
+            <div className="flex items-center gap-3 mt-1">
+              <button
+                onClick={() => location.reload()}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 text-xs font-semibold transition-all"
+              >
+                إعادة محاولة الكاميرا
+              </button>
+              <a href="/" className="px-4 py-2 text-[#FFA940] text-xs font-semibold hover:underline">
+                ← رجوع للكشك
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
@@ -497,13 +543,13 @@ export const ArExperience: React.FC = () => {
         </header>
       )}
 
-      {/* Bottom download button (tracking) */}
-      {phase === 'tracking' && (
-        <footer className="absolute bottom-0 inset-x-0 z-30 p-5 pb-8 bg-gradient-to-t from-black/90 to-transparent flex justify-center pointer-events-auto">
+      {/* Bottom download button (always visible during scanning & tracking) */}
+      {(phase === 'tracking' || phase === 'scanning') && (
+        <footer className="absolute bottom-0 inset-x-0 z-30 p-5 pb-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex justify-center pointer-events-auto">
           <button
             onClick={handleDownload}
             disabled={isDownloading || !imgUrl}
-            className="w-full max-w-xs py-4 rounded-2xl bg-gradient-to-r from-[#FF5C00] to-[#FFA940] text-white font-bold text-base shadow-xl shadow-[#FF5C00]/30 flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full max-w-xs py-4 rounded-2xl bg-gradient-to-r from-[#FF5C00] to-[#FFA940] text-white font-bold text-base shadow-xl shadow-[#FF5C00]/30 flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95 transition-all"
           >
             <Download className="w-5 h-5" />
             {isDownloading ? 'جاري الحفظ...' : 'حفظ الصورة بجهازك'}
