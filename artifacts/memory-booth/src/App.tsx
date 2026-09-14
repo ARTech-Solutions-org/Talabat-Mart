@@ -669,8 +669,8 @@ function ResultStep({
         <>
           <div className="qr-backdrop no-print" onClick={onCloseQR} />
           <div className="qr-modal no-print" dir="rtl">
-            <h2 className="!text-xl font-bold mb-1">تجربة الواقع المعزز 3D ✨</h2>
-            <p className="!text-xs !mb-4 text-white/80">امسح الكود بكاميرا هاتفك لتشاهد الصورة مجسمة 3D وتنزيلها بجهازك</p>
+            <h2 className="!text-xl font-bold mb-1">احفظ صورتك 📸</h2>
+            <p className="!text-xs !mb-4 text-white/80">امسح الرمز بكاميرا هاتفك لتحميل وحفظ صورتك التذكارية بجودة عالية</p>
             <div className="bg-white p-3 rounded-2xl shadow-inner inline-block mx-auto mb-3">
               <QRCodeSVG value={qrUrl} size={180} bgColor="#ffffff" fgColor="#3D0C17" level="Q" />
             </div>
@@ -681,7 +681,7 @@ function ResultStep({
                 rel="noreferrer"
                 className="px-4 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5"
               >
-                <span>تجربة الـ AR الآن</span>
+                <span>تحميل الصورة</span>
               </a>
               <button className="qr-close-btn !mt-0 !py-2 !px-4" onClick={onCloseQR}>إغلاق</button>
             </div>
@@ -753,11 +753,11 @@ const createFramedImageBase64 = (origUrl: string, aiUrl: string): Promise<string
               ctx.restore();
             };
 
-            // 2. Original photo in Left slot (Green #17FF02 in Frame 8.svg: x=254, y=275, w=910, h=823, rx=83)
-            drawCoverInRoundedRect(origPhotoImg, 254, 275, 910, 823, 83);
+            // 2. Original photo in Left slot (Green #17FF02 in Frame 8.svg: x=131, y=268, w=1084, h=980, rx=83)
+            drawCoverInRoundedRect(origPhotoImg, 131, 268, 1084, 980, 83);
 
-            // 3. AI photo in Right slot (Blue #001AFF in Frame 8.svg: x=1307, y=275, w=910, h=823, rx=83)
-            drawCoverInRoundedRect(aiPhotoImg, 1307, 275, 910, 823, 83);
+            // 3. AI photo in Right slot (Blue #001AFF in Frame 8.svg: x=1257, y=268, w=1084, h=980, rx=83)
+            drawCoverInRoundedRect(aiPhotoImg, 1257, 268, 1084, 980, 83);
 
             // 4. Landscape frame overlay with header logo, labels, and bottom ribbon
             ctx.drawImage(frameImg, 0, 0, 2471, 1658);
@@ -995,10 +995,10 @@ function Home() {
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      const arUrl = `${window.location.origin}/ar.html?img=${encodeURIComponent(data.url)}`;
-      setQrUrl(arUrl);
+      const saveUrl = `${window.location.origin}/save.html?img=${encodeURIComponent(data.url)}`;
+      setQrUrl(saveUrl);
       setSaved(true);
-      showToast('Memory saved! Scan for 3D AR.');
+      showToast('تم حفظ الصورة! امسح الرمز لتحميلها على هاتفك');
     } catch (err: any) {
       showToast(err.message || 'Upload failed.', true);
     } finally {

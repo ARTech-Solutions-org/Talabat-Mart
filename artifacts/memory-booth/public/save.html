@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#FF5900">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>طلبات مارت — احفظ صورتك</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #F7EEE3;
+      color: #3D0C17;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 36px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .header {
+      width: 100%;
+      max-width: 540px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #FF5900;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 14px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      box-shadow: 0 4px 14px rgba(255, 89, 0, 0.35);
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 900;
+      color: #3D0C17;
+      margin-bottom: 6px;
+    }
+
+    p.subtitle {
+      font-size: 14px;
+      color: #6E5359;
+      font-weight: 500;
+    }
+
+    .card-container {
+      width: 100%;
+      max-width: 540px;
+      background: #ffffff;
+      padding: 12px;
+      border-radius: 24px;
+      box-shadow: 0 12px 36px rgba(61, 12, 23, 0.08), 0 2px 6px rgba(0,0,0,0.04);
+      margin-bottom: 24px;
+      border: 1px solid rgba(227, 82, 5, 0.15);
+      position: relative;
+    }
+
+    .image-wrapper {
+      width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #f0e6da;
+      aspect-ratio: 152 / 102;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .photo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: default; /* allows iOS long-press save */
+    }
+
+    .actions {
+      width: 100%;
+      max-width: 540px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn-download {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, #FF5900 0%, #E35205 100%);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      text-decoration: none;
+      border-radius: 18px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(255, 89, 0, 0.4);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .btn-download:active {
+      transform: scale(0.98);
+      box-shadow: 0 3px 10px rgba(255, 89, 0, 0.3);
+    }
+
+    .btn-download svg {
+      width: 22px;
+      height: 22px;
+      stroke-width: 2.5;
+    }
+
+    .tip-box {
+      background: rgba(255, 89, 0, 0.08);
+      border: 1px dashed rgba(255, 89, 0, 0.35);
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #573138;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: #7A575F;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 8px;
+      transition: color 0.2s;
+    }
+
+    .btn-secondary:hover {
+      color: #FF5900;
+    }
+
+    .spinner {
+      border: 3px solid rgba(255, 89, 0, 0.2);
+      border-top-color: #FF5900;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo-badge">
+      <span>طلبات مارت • Talabat Mart</span>
+    </div>
+    <h1>ذكرياتك جاهزة للتحميل</h1>
+    <p class="subtitle">اضغط على الزر أدناه لحفظ صورتك التذكارية مباشرة على جهازك</p>
+  </div>
+
+  <div class="card-container">
+    <div class="image-wrapper" id="imageWrapper">
+      <div class="spinner" id="spinner"></div>
+      <img id="memoryImg" class="photo-img" alt="صورة الذكريات" style="display: none;" />
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn-download" id="downloadBtn">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      <span>تحميل الصورة</span>
+    </button>
+
+    <div class="tip-box">
+      💡 <strong>نصيحة:</strong> يمكنك أيضاً الضغط مطولاً على الصورة واختيار <strong>"إضافة إلى الصور"</strong> لحفظها مباشرة في ألبوم الصور.
+    </div>
+
+    <a id="viewFullBtn" href="#" target="_blank" class="btn-secondary" style="display: none;">
+      <span>عرض الصورة بالحجم الكامل ↗</span>
+    </a>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const imgUrl = params.get('img');
+    const memoryImg = document.getElementById('memoryImg');
+    const spinner = document.getElementById('spinner');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const viewFullBtn = document.getElementById('viewFullBtn');
+
+    if (imgUrl) {
+      memoryImg.onload = () => {
+        spinner.style.display = 'none';
+        memoryImg.style.display = 'block';
+        viewFullBtn.href = imgUrl;
+        viewFullBtn.style.display = 'inline-flex';
+      };
+      memoryImg.onerror = () => {
+        spinner.style.display = 'none';
+        memoryImg.style.display = 'none';
+        document.getElementById('imageWrapper').innerHTML = '<p style="padding: 20px; font-size: 13px; color: #888;">تعذر تحميل الصورة، يرجى المحاولة لاحقاً</p>';
+      };
+      memoryImg.src = imgUrl;
+
+      downloadBtn.addEventListener('click', async () => {
+        try {
+          downloadBtn.querySelector('span').textContent = 'جارٍ التحميل...';
+          const resp = await fetch(imgUrl);
+          const blob = await resp.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = 'talabat-memory.jpg';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(blobUrl);
+          downloadBtn.querySelector('span').textContent = 'تم التحميل بنجاح ✓';
+          setTimeout(() => {
+            downloadBtn.querySelector('span').textContent = 'تحميل الصورة مرة أخرى';
+          }, 2500);
+        } catch (err) {
+          // Fallback direct download
+          const a = document.createElement('a');
+          a.href = imgUrl;
+          a.download = 'talabat-memory.jpg';
+          a.target = '_blank';
+          a.click();
+          downloadBtn.querySelector('span').textContent = 'تحميل الصورة';
+        }
+      });
+    } else {
+      spinner.style.display = 'none';
+      document.getElementById('imageWrapper').innerHTML = '<p style="padding: 20px; font-size: 13px; color: #888;">لا يوجد رابط صورة محدد</p>';
+      downloadBtn.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

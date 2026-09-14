@@ -1085,10 +1085,10 @@ input  { font: inherit; }
   /* Left slot: Original Photo (Green in Frame 8.svg: x=254, y=275, w=910, h=823, rx=83) */
   .print-photo-original {
     position: absolute !important;
-    top: calc(275 / 1658 * 100%) !important;
-    left: calc(254 / 2471 * 100%) !important;
-    width: calc(910 / 2471 * 100%) !important;
-    height: calc(823 / 1658 * 100%) !important;
+    top: calc(268 / 1658 * 100%) !important;
+    left: calc(131 / 2471 * 100%) !important;
+    width: calc(1084 / 2471 * 100%) !important;
+    height: calc(980 / 1658 * 100%) !important;
     border-radius: calc(83 / 1658 * 102mm) !important;
     object-fit: cover !important;
     z-index: 1 !important;
@@ -1097,10 +1097,10 @@ input  { font: inherit; }
   /* Right slot: AI Photo (Blue in Frame 8.svg: x=1307, y=275, w=910, h=823, rx=83) */
   .print-photo-ai {
     position: absolute !important;
-    top: calc(275 / 1658 * 100%) !important;
-    left: calc(1307 / 2471 * 100%) !important;
-    width: calc(910 / 2471 * 100%) !important;
-    height: calc(823 / 1658 * 100%) !important;
+    top: calc(268 / 1658 * 100%) !important;
+    left: calc(1257 / 2471 * 100%) !important;
+    width: calc(1084 / 2471 * 100%) !important;
+    height: calc(980 / 1658 * 100%) !important;
     border-radius: calc(83 / 1658 * 102mm) !important;
     object-fit: cover !important;
     z-index: 1 !important;
