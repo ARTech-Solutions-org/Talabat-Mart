@@ -1,5 +1,5 @@
 // Talabat Memory Booth — Service Worker for PWA
-const CACHE_NAME = 'talabat-memory-booth-v1';
+const CACHE_NAME = 'talabat-memory-booth-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
