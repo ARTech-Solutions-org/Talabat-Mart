@@ -6,7 +6,17 @@ type GenerateMemoryBody = {
   imageBase64?: string;
   mimeType?: string;
   experience?: "younger" | "older";
-  location?: "classroom" | "school-yard" | "lab-room" | "library" | "graduation" | "trip";
+  location?:
+    | "classroom"
+    | "school-yard"
+    | "schoolyard"
+    | "lab-room"
+    | "labroom"
+    | "library"
+    | "graduation"
+    | "trip";
+  backgroundId?: string;
+  subLocation?: string;
 };
 
 type MemoryRequest = {
@@ -56,20 +66,232 @@ const EXPERIENCE_PROMPTS: Record<NonNullable<GenerateMemoryBody["experience"]>, 
 - Both individuals keep their exact pose, placement, and spatial relationship from the reference photo.`,
 };
 
-const LOCATION_PROMPTS: Record<NonNullable<GenerateMemoryBody["location"]>, string> = {
-  classroom: `Place both subjects inside a bright modern classroom while preserving their exact poses: an orange feature wall, a large whiteboard, wooden desks and bookshelves, soft warm daylight streaming through large windows, education photobooth aesthetic.`,
-  "school-yard": `Place both subjects outdoors in a school yard at golden-hour sunset while preserving their exact poses: a basketball court hoop, blurred school building and sports fence in the background, warm backlight sun flare, nostalgic autumn/orange tones.`,
-  "lab-room": `Place both subjects inside a science lab room while preserving their exact poses: glass beakers and test tubes with amber liquid on the bench, blurred lab equipment and science posters in the background, bright clean lighting.`,
-  library: `Place both subjects standing in a long modern library aisle while preserving their exact poses: tall wooden and orange bookshelves lining both sides, warm overhead lamps, reflective floor, deep symmetrical perspective.`,
-  graduation: `Place both subjects in a celebratory graduation ceremony while preserving their exact poses: soft bokeh crowd background, floating graduation cap and celebratory confetti in the air, warm festive lighting, joyful celebratory mood.`,
-  trip: `Place both subjects outdoors at the Giza Pyramids in Egypt during golden sunset while preserving their exact poses: pyramids silhouetted in the warm desert background, soft sand foreground, travel-photography look with warm orange/brown color grading.`,
+// ─── Multi-Scene Background Categories ─────────────────────────────────────
+
+export interface BackgroundOption {
+  id: string;
+  label: string;
+  prompt: string;
+}
+
+export interface LocationCategory {
+  label: string;
+  options: BackgroundOption[];
+}
+
+export type LocationKey =
+  | "trip"
+  | "classroom"
+  | "schoolyard"
+  | "labroom"
+  | "library"
+  | "graduation";
+
+export const LOCATION_PROMPTS: Record<LocationKey, LocationCategory> = {
+  trip: {
+    label: "Trip",
+    options: [
+      {
+        id: "pyramids",
+        label: "Pyramids",
+        prompt:
+          "Place both subjects outdoors at the Giza Pyramids in Egypt during golden sunset while preserving their exact poses: pyramids silhouetted in the warm desert background, soft sand foreground, travel-photography look with warm orange/brown color grading.",
+      },
+      {
+        id: "zoo",
+        label: "Zoo",
+        prompt:
+          "Place both subjects outdoors at a lively zoo while preserving their exact poses: animal enclosures and greenery softly blurred in the background, natural daylight, cheerful family-outing atmosphere, warm candid photography look.",
+      },
+      {
+        id: "malahy",
+        label: "Amusement Park",
+        prompt:
+          "Place both subjects at a colorful amusement park while preserving their exact poses: blurred ferris wheel and ride lights in the background, warm evening lighting with soft bokeh, festive fairground atmosphere.",
+      },
+    ],
+  },
+
+  classroom: {
+    label: "Classroom",
+    options: [
+      {
+        id: "whiteboard",
+        label: "Whiteboard",
+        prompt:
+          "Place both subjects inside a bright modern classroom while preserving their exact poses: a large whiteboard with faint educational writing, wooden desks in the background, soft warm daylight through windows, education photobooth aesthetic.",
+      },
+      {
+        id: "first_day_frame",
+        label: "First Day of School Frame",
+        prompt:
+          "Place both subjects inside a warm classroom while preserving their exact poses: a decorative 'First Day of School' photo frame or banner softly visible in the background, colorful classroom decorations, cheerful natural lighting.",
+      },
+      {
+        id: "desks",
+        label: "Desks Row",
+        prompt:
+          "Place both subjects standing between rows of classroom desks while preserving their exact poses: bookshelves and a chalkboard blurred in the background, warm daylight, cozy classic classroom feel.",
+      },
+    ],
+  },
+
+  schoolyard: {
+    label: "School Yard",
+    options: [
+      {
+        id: "football_yard",
+        label: "Football Yard",
+        prompt:
+          "Place both subjects outdoors on a school football yard at golden-hour sunset while preserving their exact poses: goalposts and blurred school building in the background, warm backlight sun flare, nostalgic orange tones.",
+      },
+      {
+        id: "playground",
+        label: "Playground",
+        prompt:
+          "Place both subjects outdoors in a school playground while preserving their exact poses: swings and slides softly blurred in the background, bright cheerful daylight, playful energetic atmosphere.",
+      },
+      {
+        id: "garden",
+        label: "Garden",
+        prompt:
+          "Place both subjects outdoors in a lush school garden while preserving their exact poses: green trees, flower beds, and a stone pathway in the background, soft natural sunlight, calm and fresh atmosphere.",
+      },
+    ],
+  },
+
+  labroom: {
+    label: "Lab Room",
+    options: [
+      {
+        id: "microscope",
+        label: "Microscope Bench",
+        prompt:
+          "Place both subjects inside a science lab room while preserving their exact poses: a microscope and lab notebooks on the bench, blurred lab equipment in the background, bright clean lighting.",
+      },
+      {
+        id: "chemical_tubes",
+        label: "Chemical Tubes",
+        prompt:
+          "Place both subjects inside a science lab room while preserving their exact poses: glass beakers and test tubes with amber and blue liquid on the bench, blurred science posters in the background, bright clean lighting.",
+      },
+      {
+        id: "lab_equipment",
+        label: "General Lab Equipment",
+        prompt:
+          "Place both subjects inside a modern science lab while preserving their exact poses: shelves of lab equipment, safety goggles, and a periodic table chart blurred in the background, bright clinical lighting.",
+      },
+    ],
+  },
+
+  library: {
+    label: "Library",
+    options: [
+      {
+        id: "bookshelves",
+        label: "Bookshelves Aisle",
+        prompt:
+          "Place both subjects standing in a long modern library aisle while preserving their exact poses: tall wooden bookshelves lining both sides, warm overhead lamps, deep symmetrical perspective.",
+      },
+      {
+        id: "computers",
+        label: "Computer Area",
+        prompt:
+          "Place both subjects inside a modern library computer area while preserving their exact poses: rows of computer desks and soft screen glow blurred in the background, warm ambient lighting.",
+      },
+      {
+        id: "reading_table",
+        label: "Reading Table",
+        prompt:
+          "Place both subjects seated or standing near a library reading table stacked with books while preserving their exact poses: bookshelves blurred in the background, warm cozy lamp lighting.",
+      },
+    ],
+  },
+
+  graduation: {
+    label: "Graduation",
+    options: [
+      {
+        id: "school_building",
+        label: "School Building",
+        prompt:
+          "Place both subjects in front of a school building during a graduation celebration while preserving their exact poses: soft bokeh of the building facade and balloons in the background, warm festive lighting.",
+      },
+      {
+        id: "theater",
+        label: "Theater",
+        prompt:
+          "Place both subjects on a graduation ceremony theater stage while preserving their exact poses: stage curtains and soft spotlight glow in the background, warm celebratory mood.",
+      },
+      {
+        id: "crowd_celebration",
+        label: "Crowd Celebration",
+        prompt:
+          "Place both subjects in a celebratory graduation ceremony while preserving their exact poses: soft bokeh crowd background, floating graduation cap and confetti in the air, warm festive lighting, joyful mood.",
+      },
+    ],
+  },
 };
 
-function buildPrompt(experience: NonNullable<GenerateMemoryBody["experience"]>, location: NonNullable<GenerateMemoryBody["location"]>) {
-  const expText = EXPERIENCE_PROMPTS[experience];
-  const locText = LOCATION_PROMPTS[location];
+// Map normalized keys to handle hyphens ("school-yard" -> "schoolyard", "lab-room" -> "labroom")
+export function normalizeLocationKey(key: string): LocationKey | null {
+  const clean = key.toLowerCase().replace(/[-_\s]/g, "");
+  if (clean === "trip") return "trip";
+  if (clean === "classroom") return "classroom";
+  if (clean === "schoolyard" || clean === "school") return "schoolyard";
+  if (clean === "labroom" || clean === "lab") return "labroom";
+  if (clean === "library") return "library";
+  if (clean === "graduation") return "graduation";
+  return null;
+}
 
-  return `Using the uploaded photo as the exact reference for both people, generate a photorealistic image that transports both individuals into a new background with an age transformation while preserving their exact poses and facial identities:
+// In-memory tracker to prevent consecutive repeated scenes for the same category
+const lastPickedHistory = new Map<LocationKey, number>();
+
+export function getRandomBackground(
+  category: string,
+  specificId?: string,
+): BackgroundOption {
+  const normKey = normalizeLocationKey(category);
+  if (!normKey || !LOCATION_PROMPTS[normKey]) {
+    throw new Error(`Unknown location category: ${category}`);
+  }
+
+  const categoryData = LOCATION_PROMPTS[normKey];
+  const options = categoryData.options;
+
+  // If a specific sub-scene ID is requested, use it directly
+  if (specificId) {
+    const specific = options.find(
+      (opt) => opt.id.toLowerCase() === specificId.toLowerCase(),
+    );
+    if (specific) return specific;
+  }
+
+  // Smart random: avoid picking the exact same scene twice consecutively
+  const lastIndex = lastPickedHistory.get(normKey);
+  let chosenIndex: number;
+
+  if (options.length > 1 && lastIndex !== undefined) {
+    const candidateIndices = options.map((_, i) => i).filter((i) => i !== lastIndex);
+    chosenIndex = candidateIndices[Math.floor(Math.random() * candidateIndices.length)];
+  } else {
+    chosenIndex = Math.floor(Math.random() * options.length);
+  }
+
+  lastPickedHistory.set(normKey, chosenIndex);
+  return options[chosenIndex];
+}
+
+function buildPrompt(
+  experience: NonNullable<GenerateMemoryBody["experience"]>,
+  location: string,
+  specificBackgroundId?: string,
+): { prompt: string; background: BackgroundOption } {
+  const expText = EXPERIENCE_PROMPTS[experience];
+  const background = getRandomBackground(location, specificBackgroundId);
+
+  const prompt = `Using the uploaded photo as the exact reference for both people, generate a photorealistic image that transports both individuals into a new background with an age transformation while preserving their exact poses and facial identities:
 
 1. CRITICAL POSE, COMPOSITION & IDENTITY PRESERVATION:
 - STRICTLY PRESERVE the exact pose, body posture, gestures, arm/hand placement, head tilt, and physical orientation of both individuals from the uploaded photo.
@@ -79,13 +301,15 @@ function buildPrompt(experience: NonNullable<GenerateMemoryBody["experience"]>, 
 
 2. BACKGROUND REPLACEMENT:
 - Replace the original background completely with this new setting:
-${locText}
+${background.prompt}
 - Integrate both subjects naturally into this new environment with realistic contact lighting and shadows, while keeping their exact poses and interaction.
 
 3. ${expText}
 
 - Style: Warm, cinematic editorial photography, natural lighting, sharp focus on both faces, genuine expressions matching the original photo. High detail, 4K quality.
 - Negative constraints: generic random children, completely different poses, altered body postures, swapped positions, repositioned arms or hands, unrecognizable people, extra people, text overlays, watermarks, distorted faces, unrealistic proportions, extra limbs, deformed fingers.`;
+
+  return { prompt, background };
 }
 
 router.post(
@@ -99,18 +323,34 @@ router.post(
       return;
     }
 
-    const { imageBase64, mimeType = "image/jpeg", experience, location } =
-      req.body ?? {};
+    const {
+      imageBase64,
+      mimeType = "image/jpeg",
+      experience,
+      location,
+      backgroundId,
+      subLocation,
+    } = req.body ?? {};
 
     if (!experience || !location) {
       res.status(400).json({ error: "Choose an experience and a location first." });
       return;
     }
 
-    if (!EXPERIENCE_PROMPTS[experience] || !LOCATION_PROMPTS[location]) {
+    const normLocation = normalizeLocationKey(location);
+    if (!EXPERIENCE_PROMPTS[experience] || !normLocation) {
       res.status(400).json({ error: "Invalid experience or location choice." });
       return;
     }
+
+    const { prompt, background } = buildPrompt(
+      experience,
+      location,
+      backgroundId || subLocation,
+    );
+    console.log(
+      `[Memory Generate] Category: "${location}" -> Selected Scene: [${background.id}] "${background.label}"`,
+    );
 
     const imagePart = imageBase64
       ? {
@@ -120,8 +360,6 @@ router.post(
         },
       }
       : null;
-
-    const prompt = buildPrompt(experience, location);
 
     const parts = imagePart
       ? [imagePart, { text: prompt }]
@@ -183,6 +421,11 @@ router.post(
       res.json({
         imageBase64: generatedPart.inlineData.data,
         mimeType: generatedPart.inlineData.mimeType ?? "image/png",
+        background: {
+          category: location,
+          id: background.id,
+          label: background.label,
+        },
       });
     } catch (error) {
       req.log?.error({ err: error }, "Unexpected image generation error");
