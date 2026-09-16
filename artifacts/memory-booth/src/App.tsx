@@ -807,7 +807,14 @@ function Home() {
     const startCamera = async () => {
       if (!navigator.mediaDevices?.getUserMedia) { setCameraError('Camera not supported.'); return; }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width:  { ideal: 3840, min: 1280 },
+            height: { ideal: 2160, min: 720 },
+          },
+          audio: false,
+        });
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
         setCameraStream(stream);
         setCameraError(null);
@@ -844,7 +851,7 @@ function Home() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d')?.drawImage(video, 0, 0);
-      setPhotoDataUrl(canvas.toDataURL('image/jpeg', 0.92));
+      setPhotoDataUrl(canvas.toDataURL('image/jpeg', 1.0));
       setFileName(null);
     }
     setCountdown(null);
