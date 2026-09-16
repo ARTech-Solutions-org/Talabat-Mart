@@ -562,7 +562,7 @@ function ResultStep({
   return (
     <>
       <div className="booth-screen no-print" data-testid="step-result">
-        <img src="/design-ref/frame7/bg.png" alt="" className="booth-bg" />
+        <img src="/design-ref/Frame%207.svg" alt="" className="booth-bg" />
 
         {generationError && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-[#5A1D28]/95 border border-[#E35205]/40 text-[#F5EEE4] px-6 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2.5 z-30 shadow-xl max-w-[92%] text-center">
@@ -573,18 +573,18 @@ function ResultStep({
 
         <motion.img 
           src="/design-ref/frame7/logo.png" 
-          style={pos(184, 125, 713, 153)}
+          style={pos(125, 152, 797, 171)}
           initial={{ y: '-50%', opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.1 }}
         />
 
         {/* NO ANIMATION FOR THE PHOTOS */}
-        <div style={pos(51, 373, 463, 667)} className="rounded-[81px] overflow-hidden">
+        <div style={pos(51, 432, 463, 667)} className="rounded-[81px] overflow-hidden">
           <img src={origImage} alt="Original family photo" className="w-full h-full object-cover" data-testid="image-original" />
         </div>
 
-        <div style={pos(589, 373, 463, 667)} className="rounded-[81px] overflow-hidden">
+        <div style={pos(589, 432, 463, 667)} className="rounded-[81px] overflow-hidden">
           <img src={aiImage} alt="AI generated memory" className="w-full h-full object-cover" data-testid="image-generated" />
         </div>
 
@@ -606,7 +606,7 @@ function ResultStep({
 
         <motion.img 
           src="/design-ref/frame7/enjoy%20your%20memory.png" 
-          style={pos(187, 1283, 706, 181)}
+          style={pos(187, 1210, 706, 181)}
           initial={{ y: '50%', opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.4 }}
@@ -614,7 +614,7 @@ function ResultStep({
 
         <motion.button
           type="button"
-          style={pos(337, 1548, 406, 122)}
+          style={pos(337, 1494, 406, 122)}
           className={isUploading ? 'opacity-75 pointer-events-none' : ''}
           whileTap={{ scale: 0.95 }}
           onClick={onSave}
@@ -629,7 +629,7 @@ function ResultStep({
 
         <motion.button
           type="button"
-          style={pos(285, 1701, 510, 122)}
+          style={pos(285, 1683, 510, 122)}
           whileTap={{ scale: 0.95 }}
           onClick={onPrint}
           initial={{ y: '50%', opacity: 0 }}
@@ -643,7 +643,7 @@ function ResultStep({
         <motion.button
           type="button"
           className="text-[#64412B] font-bold text-3xl uppercase tracking-wider"
-          style={pos(285, 1840, 510, 50)}
+          style={pos(285, 1822, 510, 50)}
           whileTap={{ scale: 0.95 }}
           onClick={onStartOver}
           initial={{ opacity: 0 }}
