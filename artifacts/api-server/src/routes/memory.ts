@@ -49,21 +49,29 @@ type GeminiHttpResponse = {
 // ─── Prompt Building Blocks ────────────────────────────────────────────────
 
 const EXPERIENCE_PROMPTS: Record<NonNullable<GenerateMemoryBody["experience"]>, string> = {
-  younger: `AGE TRANSFORMATION — DE-AGE THE PARENT INTO A SCHOOLCHILD (CHILDHOOD LIKENESS & EXACT POSE):
-- Identify the adult parent (the person with adult facial features, beard/stubble, or mature build) and the child in the reference photo.
-- For the Adult Parent: Turn the parent into a schoolchild (approximately 10–12 years old). This must be a true, photorealistic CHILDHOOD VERSION of this specific person:
-  * STRICTLY PRESERVE the parent's core facial DNA: exact eye shape, eyelid fold, nose structure, eyebrow arch, distinctive smile shape, ear shape, and natural skin tone, naturally adapted into a 10–12 year old kid's face (what this exact adult looked like as a school student).
-  * Remove all facial hair, beard, mustache, and adult facial creases, giving them smooth youthful skin and school-kid hair.
-  * Adjust their body size to a 10–12 year old child while KEEPING their exact pose, arm and hand placement, and head tilt from the photo.
-  * It must NOT be a random generic child face; anyone looking at the photo should immediately recognize the childhood face of this exact parent!
-- For the Child: Keep the child at their EXACT same age, facial features, and expression from the original photo.
-- Both subjects now appear as two school-age peers/friends standing together, maintaining the EXACT physical interaction, gestures, and pose from the original photo.`,
+  younger: `THIS IS PRIMARILY AN AGE TRANSFORMATION TASK — DE-AGE THE PARENT INTO A CHILD:
+- The MOST IMPORTANT goal is to transform the adult parent's appearance into a 10–12 year old child. This transformation MUST be clearly visible and dramatic — not subtle.
+- Identify who is the adult parent (larger, adult facial structure, possibly has beard/stubble or mature features) and who is the child.
+- PARENT TRANSFORMATION (MANDATORY — this is the main task):
+  * Completely transform the parent into a believable, photorealistic 10–12 year old child version of themselves.
+  * Remove ALL adult facial features: beard, stubble, wrinkles, adult jawline. Replace with smooth youthful skin, rounder face, smaller nose, larger-looking eyes typical of a child.
+  * Shrink their body proportions to a child's size — shorter, slimmer arms and legs, smaller hands.
+  * Hair should look like a schoolchild's hairstyle.
+  * The result must look like a REAL 10–12 year old child, not an adult with a younger face.
+- CHILD IN PHOTO: Keep the child at their exact same age and appearance — do NOT change them.
+- POSE: After the transformation, both now appear as two school-age kids. Keep their relative positions and physical interaction (hugging, standing close, etc.) but naturally adapt the body sizes.`,
 
-  older: `AGE TRANSFORMATION — GROW UP THE CHILD (PRESERVING EXACT IDENTITY & POSE):
-- Retain the exact body pose, stance, gestures, hand placement, and interaction between both individuals as seen in the reference photo.
-- For the Child: Age the child up into a tall, accomplished young adult / university graduate (approx 20–24 years old). Give them mature adult facial proportions while STRICTLY PRESERVING their childhood facial identity (same eyes, face shape, distinctive smile, and skin tone).
-- For the Parent / Adult: Keep the parent clearly recognizable and proud, looking refreshed and youthful.
-- Both individuals keep their exact pose, placement, and spatial relationship from the reference photo.`,
+  older: `THIS IS PRIMARILY AN AGE TRANSFORMATION TASK — AGE UP THE CHILD INTO A YOUNG ADULT:
+- The MOST IMPORTANT goal is to transform the child's appearance into a 20–24 year old young adult / university graduate. This transformation MUST be clearly visible and dramatic — not subtle.
+- Identify who is the child (smaller, younger facial features) and who is the adult parent.
+- CHILD TRANSFORMATION (MANDATORY — this is the main task):
+  * Completely transform the child into a photorealistic 20–24 year old young adult version of themselves.
+  * Add adult facial features: defined jawline, mature facial proportions, adult height and build.
+  * The child should now be as tall as or taller than the parent, with an adult physique.
+  * They may wear a graduation gown or smart casual clothing befitting a young graduate.
+  * The result must look like a REAL young adult, not a child with a slightly older face.
+- PARENT IN PHOTO: Keep the parent at their exact current age and appearance — do NOT change them.
+- POSE: After the transformation, they appear as a proud parent standing with their grown-up child. Keep their relative closeness and interaction naturally adapted to their new adult sizes.`,
 };
 
 // ─── Multi-Scene Background Categories ─────────────────────────────────────
@@ -291,23 +299,22 @@ function buildPrompt(
   const expText = EXPERIENCE_PROMPTS[experience];
   const background = getRandomBackground(location, specificBackgroundId);
 
-  const prompt = `Using the uploaded photo as the exact reference for both people, generate a photorealistic image that transports both individuals into a new background with an age transformation while preserving their exact poses and facial identities:
+  const prompt = `You are given a reference photo of two people. Your task has TWO parts — perform BOTH:
 
-1. CRITICAL POSE, COMPOSITION & IDENTITY PRESERVATION:
-- STRICTLY PRESERVE the exact pose, body posture, gestures, arm/hand placement, head tilt, and physical orientation of both individuals from the uploaded photo.
-- Maintain their exact positions relative to each other (who is on the left and who is on the right, how they stand or sit, their spatial relationship and physical contact).
-- Do NOT alter their poses or invent new body positions. The framing, camera angle, and physical postures must match the original photo.
-- PRESERVE facial identity, unique facial features, skin tone, eye shape, nose shape, and distinct smile so they remain 100% immediately recognizable as the same people. Do NOT generate generic or random faces.
+PART 1 — AGE TRANSFORMATION (PRIMARY TASK — do this first and make it clearly visible):
+${expText}
 
-2. BACKGROUND REPLACEMENT:
-- Replace the original background completely with this new setting:
+PART 2 — BACKGROUND REPLACEMENT (SECONDARY TASK — after transformation):
+Replace the original background completely with this new setting:
 ${background.prompt}
-- Integrate both subjects naturally into this new environment with realistic contact lighting and shadows, while keeping their exact poses and interaction.
+Integrate both subjects naturally into this new environment with realistic lighting and shadows.
 
-3. ${expText}
-
-- Style: Warm, cinematic editorial photography, natural lighting, sharp focus on both faces, genuine expressions matching the original photo. High detail, 4K quality.
-- Negative constraints: generic random children, completely different poses, altered body postures, swapped positions, repositioned arms or hands, unrecognizable people, extra people, text overlays, watermarks, distorted faces, unrealistic proportions, extra limbs, deformed fingers.`;
+CRITICAL RULES FOR BOTH PARTS:
+- The age transformation in Part 1 MUST be dramatic and obvious — if someone compares the output to the original photo, the transformed person must look clearly younger/older, not the same.
+- PRESERVE facial identity and unique features of each person so they remain recognizable as themselves (just at a different age).
+- Maintain their relative positions and physical interaction (who is on which side, their closeness, any physical contact).
+- Style: Warm, cinematic photorealistic photography, sharp focus on both faces, natural lighting, 4K quality.
+- Do NOT add: text overlays, watermarks, extra people, distorted faces, extra limbs, deformed hands.`;
 
   return { prompt, background };
 }
