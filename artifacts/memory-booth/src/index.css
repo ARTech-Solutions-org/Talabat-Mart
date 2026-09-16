@@ -657,10 +657,10 @@ input  { font: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Isolate this layer so the SVG overlay above doesn't force recompositing */
+  /* Own GPU compositing layer — decouples video decode from SVG overlay paint */
   will-change: transform;
   transform: translateZ(0);
-  contain: strict;
+  /* NOTE: do NOT use contain:strict here — it breaks z-index stacking */
 }
 
 .cam-viewport.cam-capturing {
@@ -671,7 +671,6 @@ input  { font: inherit; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  image-rendering: high-quality;
 }
 
 .cam-error-msg {

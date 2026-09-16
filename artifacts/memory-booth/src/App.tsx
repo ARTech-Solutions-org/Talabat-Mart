@@ -813,8 +813,12 @@ function Home() {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user',
-            width:  { ideal: 3840, min: 1280 },
-            height: { ideal: 2160, min: 720 },
+            // 1080p is the sweet spot: sharp preview, smooth 60 fps.
+            // Requesting 4K for a preview causes the GPU to decode & render
+            // 8 MP frames continuously, which drops the frame rate visibly.
+            // The capture still reads video.videoWidth/Height at native res.
+            width:  { ideal: 1920, max: 1920 },
+            height: { ideal: 1080, max: 1080 },
           },
           audio: false,
         });
