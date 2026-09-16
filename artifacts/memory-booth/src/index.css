@@ -505,6 +505,11 @@ input  { font: inherit; }
   pointer-events: none;
   user-select: none;
   z-index: 0;
+  /* Promote to its own GPU compositing layer so the live camera
+     video beneath it doesn't trigger SVG re-rasterisation every frame */
+  will-change: transform;
+  transform: translateZ(0);
+  contain: strict;
 }
 
 /* Transparent tap zone â€” whole screen is clickable on welcome */
@@ -515,10 +520,10 @@ input  { font: inherit; }
   background: transparent;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
    Screen 2 â€” Experience
    Cards side-by-side in the cream bottom zone
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  */
 
 /*
   Design breakdown (screen 2):
@@ -631,9 +636,9 @@ input  { font: inherit; }
   outline-offset: 2px;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
    Screen 5 â€” Camera (live view fills cream zone)
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  */
 
 /*
   Design breakdown (screen 5):
@@ -652,6 +657,10 @@ input  { font: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Isolate this layer so the SVG overlay above doesn't force recompositing */
+  will-change: transform;
+  transform: translateZ(0);
+  contain: strict;
 }
 
 .cam-viewport.cam-capturing {
@@ -662,6 +671,7 @@ input  { font: inherit; }
   width: 100%;
   height: 100%;
   object-fit: cover;
+  image-rendering: high-quality;
 }
 
 .cam-error-msg {

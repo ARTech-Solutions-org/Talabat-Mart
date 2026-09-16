@@ -712,6 +712,9 @@ const createFramedImageBase64 = (origUrl: string, aiUrl: string): Promise<string
             const ctx = canvas.getContext('2d');
             if (!ctx) return reject(new Error('No canvas context'));
 
+            // Enable maximum quality image smoothing for print
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             // 1. Background fill
             ctx.fillStyle = '#F7EEE3';
             ctx.fillRect(0, 0, 2471, 1658);
@@ -762,7 +765,7 @@ const createFramedImageBase64 = (origUrl: string, aiUrl: string): Promise<string
             // 4. Landscape frame overlay with header logo, labels, and bottom ribbon
             ctx.drawImage(frameImg, 0, 0, 2471, 1658);
 
-            resolve(canvas.toDataURL('image/jpeg', 0.95));
+            resolve(canvas.toDataURL('image/jpeg', 1.0));
           } catch (err) {
             reject(err);
           }
