@@ -588,21 +588,7 @@ function ResultStep({
           <img src={aiImage} alt="AI generated memory" className="w-full h-full object-cover" data-testid="image-generated" />
         </div>
 
-        <motion.img 
-          src="/design-ref/frame7/orginal%20photo%20textr.png" 
-          style={pos(55, 1087, 459, 109)}
-          initial={{ y: '50%', opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.2 }}
-        />
 
-        <motion.img 
-          src="/design-ref/frame7/ai%20genrated%20text.png" 
-          style={pos(592, 1087, 459, 109)}
-          initial={{ y: '50%', opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 0.3 }}
-        />
 
         <motion.img 
           src="/design-ref/frame7/enjoy%20your%20memory.png" 
