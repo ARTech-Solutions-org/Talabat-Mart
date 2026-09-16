@@ -7,14 +7,14 @@ type GenerateMemoryBody = {
   mimeType?: string;
   experience?: "younger" | "older";
   location?:
-    | "classroom"
-    | "school-yard"
-    | "schoolyard"
-    | "lab-room"
-    | "labroom"
-    | "library"
-    | "graduation"
-    | "trip";
+  | "classroom"
+  | "school-yard"
+  | "schoolyard"
+  | "lab-room"
+  | "labroom"
+  | "library"
+  | "graduation"
+  | "trip";
   backgroundId?: string;
   subLocation?: string;
 };
@@ -47,31 +47,39 @@ type GeminiHttpResponse = {
 };
 
 // ─── Prompt Building Blocks ────────────────────────────────────────────────
+// KEY FIX: the age-transformation prompt no longer mentions the background at
+// all. Asking one model call to do a dramatic identity-preserving age change
+// AND a full background replacement at the same time made it consistently
+// take the easy path (background) and ignore the hard one (age). Splitting
+// into two sequential calls, each with a single job, fixes that.
 
 const EXPERIENCE_PROMPTS: Record<NonNullable<GenerateMemoryBody["experience"]>, string> = {
-  younger: `THIS IS PRIMARILY AN AGE TRANSFORMATION TASK — DE-AGE THE PARENT INTO A CHILD:
-- The MOST IMPORTANT goal is to transform the adult parent's appearance into a 10–12 year old child. This transformation MUST be clearly visible and dramatic — not subtle.
-- Identify who is the adult parent (larger, adult facial structure, possibly has beard/stubble or mature features) and who is the child.
-- PARENT TRANSFORMATION (MANDATORY — this is the main task):
-  * Completely transform the parent into a believable, photorealistic 10–12 year old child version of themselves.
-  * Remove ALL adult facial features: beard, stubble, wrinkles, adult jawline. Replace with smooth youthful skin, rounder face, smaller nose, larger-looking eyes typical of a child.
-  * Shrink their body proportions to a child's size — shorter, slimmer arms and legs, smaller hands.
-  * Hair should look like a schoolchild's hairstyle.
-  * The result must look like a REAL 10–12 year old child, not an adult with a younger face.
-- CHILD IN PHOTO: Keep the child at their exact same age and appearance — do NOT change them.
-- POSE: After the transformation, both now appear as two school-age kids. Keep their relative positions and physical interaction (hugging, standing close, etc.) but naturally adapt the body sizes.`,
+  younger: `You are a professional photo editor performing an AGE TRANSFORMATION on a real uploaded photo of two people (a parent and a child). Do not generate a new image from scratch — edit the actual uploaded photo.
 
-  older: `THIS IS PRIMARILY AN AGE TRANSFORMATION TASK — AGE UP THE CHILD INTO A YOUNG ADULT:
-- The MOST IMPORTANT goal is to transform the child's appearance into a 20–24 year old young adult / university graduate. This transformation MUST be clearly visible and dramatic — not subtle.
-- Identify who is the child (smaller, younger facial features) and who is the adult parent.
-- CHILD TRANSFORMATION (MANDATORY — this is the main task):
-  * Completely transform the child into a photorealistic 20–24 year old young adult version of themselves.
-  * Add adult facial features: defined jawline, mature facial proportions, adult height and build.
-  * The child should now be as tall as or taller than the parent, with an adult physique.
-  * They may wear a graduation gown or smart casual clothing befitting a young graduate.
-  * The result must look like a REAL young adult, not a child with a slightly older face.
-- PARENT IN PHOTO: Keep the parent at their exact current age and appearance — do NOT change them.
-- POSE: After the transformation, they appear as a proud parent standing with their grown-up child. Keep their relative closeness and interaction naturally adapted to their new adult sizes.`,
+TASK — DE-AGE THE ADULT PARENT INTO A CHILD (this is the ONLY task in this step, do not touch the background):
+- Identify who is the adult parent (larger body, adult facial structure, possibly beard/stubble or mature features) and who is the child.
+- Completely transform the ADULT into a believable, photorealistic 10-12 year old child version of themselves. This transformation MUST be clearly visible and dramatic, not subtle.
+- Remove ALL adult facial features: beard, stubble, wrinkles, adult jawline. Replace with smooth youthful skin, rounder face, smaller nose, larger-looking eyes typical of a child.
+- Shrink body proportions to a child's size: shorter height, slimmer arms and legs, smaller hands. Adjust their clothing size to fit the new smaller body.
+- Give them a schoolchild-appropriate hairstyle.
+- The CHILD already in the photo must stay at their exact same age and appearance — do not change them.
+- Keep the exact original background completely unchanged in this step.
+- Preserve each person's relative position (left/right) and any physical contact (hugging, hand-holding, arm around shoulder), naturally rescaled to the new body size.
+- Preserve unique facial identity so each person is recognizable as themselves at the new age.
+- FORBIDDEN: text, watermarks, logos, extra limbs, extra people, blurry faces, deformed hands.`,
+
+  older: `You are a professional photo editor performing an AGE TRANSFORMATION on a real uploaded photo of two people (a parent and a child). Do not generate a new image from scratch — edit the actual uploaded photo.
+
+TASK — AGE UP THE CHILD INTO A YOUNG ADULT (this is the ONLY task in this step, do not touch the background):
+- Identify who is the child (smaller body, younger facial features) and who is the adult parent.
+- Completely transform the CHILD into a photorealistic 20-24 year old young adult version of themselves. This transformation MUST be clearly visible and dramatic, not subtle.
+- Add adult facial features: defined jawline, mature facial proportions.
+- Give them an adult height and build — they should now be as tall as or taller than the parent, with an adult physique. Adjust clothing to fit the new adult body (smart casual clothing or a graduation gown works well).
+- The PARENT already in the photo must stay at their exact current age and appearance — do not change them.
+- Keep the exact original background completely unchanged in this step.
+- Preserve their relative position (left/right) and closeness/interaction, naturally rescaled to the new adult body size.
+- Preserve unique facial identity so each person is recognizable as themselves at the new age.
+- FORBIDDEN: text, watermarks, logos, extra limbs, extra people, blurry faces, deformed hands.`,
 };
 
 // ─── Multi-Scene Background Categories ─────────────────────────────────────
@@ -291,34 +299,84 @@ export function getRandomBackground(
   return options[chosenIndex];
 }
 
-function buildPrompt(
-  experience: NonNullable<GenerateMemoryBody["experience"]>,
-  location: string,
-  specificBackgroundId?: string,
-): { prompt: string; background: BackgroundOption } {
-  const expText = EXPERIENCE_PROMPTS[experience];
-  const background = getRandomBackground(location, specificBackgroundId);
+function buildBackgroundPrompt(background: BackgroundOption): string {
+  return `You are a professional photo editor. You are given a real photo of two people whose ages have ALREADY been edited in a previous step. Do not generate a new image from scratch — edit the actual uploaded photo.
 
-  const prompt = `You are a professional photo editor. You are given a real photo of two people. Perform BOTH tasks below on the ACTUAL UPLOADED PHOTO — do not generate a new image from scratch:
-
-TASK 1 — AGE TRANSFORMATION (MANDATORY — this is the main purpose, must be dramatic):
-${expText}
-
-TASK 2 — BACKGROUND REPLACEMENT:
-Remove the original background and replace it with:
+TASK — BACKGROUND REPLACEMENT ONLY (this is the ONLY task in this step):
+- Do NOT change either person's face, age, body, or clothing in any way. Keep both people pixel-for-pixel as close to identical as possible — only their surroundings change.
+- Remove the original background and replace it with:
 ${background.prompt}
-Naturally composite both subjects into the new scene with matching light direction, color temperature, and shadows.
-
-STRICT REQUIREMENTS:
-- The age transformation MUST be unmistakably obvious. Body HEIGHT, LIMB PROPORTIONS, MUSCLE MASS, and FACIAL BONE STRUCTURE must all change — not just skin smoothing.
-- BOTH the face AND full body of the transformed person must reflect the new age completely.
-- The non-transformed person must remain 100% unchanged in appearance.
-- Preserve each person's unique facial identity — they should be recognizable as themselves at the new age.
+- Naturally composite both subjects into the new scene with matching light direction, color temperature, and shadows.
 - Maintain their exact relative positions (left/right placement) and any physical contact (hand-holding, hugging, arm-around-shoulder).
 - Output style: photorealistic, cinematic warm tones, sharp faces, 4K quality.
 - FORBIDDEN: text, watermarks, logos, extra limbs, extra people, blurry faces, deformed hands.`;
+}
 
-  return { prompt, background };
+// ─── Single Gemini image-edit call ─────────────────────────────────────────
+// Both pipeline steps (age transform, then background swap) go through this
+// same helper — it sends one image + one instruction and returns one image.
+
+async function editImageWithGemini(
+  apiKey: string,
+  imageBase64: string,
+  mimeType: string,
+  promptText: string,
+): Promise<{ data: string; mimeType: string } | null> {
+  const imagePart = {
+    inlineData: {
+      mimeType,
+      data: imageBase64.replace(/^data:[^;]+;base64,/, ""),
+    },
+  };
+
+  const response = (await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [imagePart, { text: promptText }],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"],
+        },
+      }),
+    },
+  )) as GeminiHttpResponse;
+
+  let payload: Awaited<ReturnType<GeminiHttpResponse["json"]>>;
+  try {
+    payload = await response.json();
+  } catch {
+    console.warn("[Gemini] Empty or invalid response, status:", response.status);
+    return null;
+  }
+
+  if (!response.ok) {
+    console.warn("[Gemini] Request failed:", response.status, payload.error?.message);
+    return null;
+  }
+
+  const generatedPart = payload.candidates
+    ?.flatMap((candidate) => candidate.content?.parts ?? [])
+    .find((part) => part.inlineData?.data);
+
+  if (!generatedPart?.inlineData?.data) {
+    console.warn("[Gemini] No image part in response");
+    return null;
+  }
+
+  return {
+    data: generatedPart.inlineData.data,
+    mimeType: generatedPart.inlineData.mimeType ?? "image/png",
+  };
 }
 
 router.post(
@@ -341,6 +399,11 @@ router.post(
       subLocation,
     } = req.body ?? {};
 
+    if (!imageBase64) {
+      res.status(400).json({ error: "Missing source photo." });
+      return;
+    }
+
     if (!experience || !location) {
       res.status(400).json({ error: "Choose an experience and a location first." });
       return;
@@ -352,239 +415,54 @@ router.post(
       return;
     }
 
-    const { prompt, background } = buildPrompt(
-      experience,
-      location,
-      backgroundId || subLocation,
-    );
+    const background = getRandomBackground(location, backgroundId || subLocation);
     console.log(
       `[Memory Generate] Category: "${location}" -> Selected Scene: [${background.id}] "${background.label}"`,
     );
 
-    const imagePart = imageBase64
-      ? {
-        inlineData: {
-          mimeType,
-          data: imageBase64.replace(/^data:[^;]+;base64,/, ""),
-        },
-      }
-      : null;
-
-    const parts = imagePart
-      ? [imagePart, { text: prompt }]
-      : [{ text: `${prompt}\nThere is no source photo for this demo; create a warm illustrative sample with two people in a locked portrait composition.` }];
-
-    // ── Two-step age transformation pipeline ──────────────────────────────────
-    // Step 1: Gemini Vision analyzes the photo → precise identity description of both people
-    // Step 2: Imagen 3 (via correct /predict endpoint + x-goog-api-key) uses that description
-    //         to perform a REAL pixel-level age transformation on the uploaded photo.
-    // This dramatically outperforms single-step Gemini Flash which cannot reliably warp faces.
-
-    async function analyzePhotoIdentities(): Promise<string> {
-      if (!imagePart) return "";
-      try {
-        const analysisRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{
-                role: "user",
-                parts: [
-                  imagePart,
-                  { text: `Analyze this photo carefully. Return a compact JSON object (no markdown) with this exact structure:
-{
-  "adult": {
-    "position": "left or right",
-    "age_estimate": "e.g. 40",
-    "gender": "man or woman",
-    "skin_tone": "one word e.g. brown, fair, dark",
-    "hair": "color and style e.g. short black",
-    "face_shape": "e.g. oval, round",
-    "distinctive_features": "any beard, glasses, etc",
-    "clothing": "color and type"
-  },
-  "child": {
-    "position": "left or right",
-    "age_estimate": "e.g. 8",
-    "gender": "boy or girl",
-    "skin_tone": "one word",
-    "hair": "color and style",
-    "face_shape": "e.g. round",
-    "distinctive_features": "any notable features",
-    "clothing": "color and type"
-  },
-  "interaction": "describe how they are posed together e.g. standing side by side, arm around shoulder"
-}` }
-                ]
-              }],
-              generationConfig: { responseMimeType: "application/json" }
-            })
-          }
-        );
-        if (!analysisRes.ok) return "";
-        const analysisPayload: any = await analysisRes.json();
-        const text = analysisPayload.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        console.log("[PhotoAnalysis] Identity JSON:", text.slice(0, 300));
-        return text;
-      } catch (e) {
-        console.warn("[PhotoAnalysis] Failed:", e);
-        return "";
-      }
-    }
-
-    async function tryImagen3WithAnalysis(identityJson: string): Promise<{ data: string; mimeType: string } | null> {
-      if (!imagePart) return null;
-
-      // Build an enhanced prompt that includes the precise identity description
-      let identityContext = "";
-      try {
-        const parsed = JSON.parse(identityJson);
-        const adult = parsed.adult ?? {};
-        const child = parsed.child ?? {};
-        identityContext = `
-IDENTITY REFERENCE (extracted from the uploaded photo — use these to maintain recognizability):
-- Adult (${adult.position ?? "unknown"} side): ${adult.age_estimate ?? "?"}yr ${adult.gender ?? "person"}, ${adult.skin_tone ?? ""} skin, ${adult.hair ?? ""} hair, ${adult.face_shape ?? ""} face${adult.distinctive_features ? ", " + adult.distinctive_features : ""}, wearing ${adult.clothing ?? "unknown"}.
-- Child (${child.position ?? "unknown"} side): ${child.age_estimate ?? "?"}yr ${child.gender ?? "child"}, ${child.skin_tone ?? ""} skin, ${child.hair ?? ""} hair${child.distinctive_features ? ", " + child.distinctive_features : ""}, wearing ${child.clothing ?? "unknown"}.
-- Pose: ${parsed.interaction ?? "standing together"}.`;
-      } catch {
-        identityContext = "";
-      }
-
-      const enhancedPrompt = `${prompt}${identityContext}`;
-
-      try {
-        // Correct Imagen 3 endpoint: /predict with x-goog-api-key (NOT generateContent)
-        const imgBody = {
-          instances: [{
-            prompt: enhancedPrompt,
-            referenceImages: [{
-              referenceType: "REFERENCE_TYPE_RAW",
-              referenceId: 1,
-              referenceImage: {
-                bytesBase64Encoded: imagePart.inlineData.data,
-                mimeType: imagePart.inlineData.mimeType,
-              }
-            }]
-          }],
-          parameters: {
-            editMode: "EDIT_MODE_INPAINT_INSERTION",
-            sampleCount: 1,
-            personGeneration: "allow_adult",
-            outputMimeType: "image/jpeg",
-            outputCompressionQuality: 95,
-          }
-        };
-        const imgRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-capability-001:predict?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(imgBody),
-          }
-        );
-        if (!imgRes.ok) {
-          const errText = await imgRes.text().catch(() => "");
-          console.warn(`[Imagen3] HTTP ${imgRes.status}: ${errText.slice(0, 300)}`);
-          return null;
-        }
-        const imgPayload: any = await imgRes.json();
-        // Imagen predict response format: { predictions: [{ bytesBase64Encoded, mimeType }] }
-        const pred = imgPayload?.predictions?.[0];
-        if (pred?.bytesBase64Encoded) {
-          return { data: pred.bytesBase64Encoded, mimeType: pred.mimeType ?? "image/jpeg" };
-        }
-        // Also try generateContent-style response in case API changed
-        const fromCandidates = imgPayload.candidates
-          ?.flatMap((c: any) => c.content?.parts ?? [])
-          .find((p: any) => p.inlineData?.data);
-        if (fromCandidates?.inlineData?.data) {
-          return { data: fromCandidates.inlineData.data, mimeType: fromCandidates.inlineData.mimeType ?? "image/jpeg" };
-        }
-        console.warn("[Imagen3] No image in response:", JSON.stringify(imgPayload).slice(0, 200));
-        return null;
-      } catch (e) {
-        console.warn("[Imagen3] Exception:", e);
-        return null;
-      }
-    }
-
     try {
-      // Two-step pipeline: Vision analysis → Imagen 3 age transformation
-      const identityJson = await analyzePhotoIdentities();
-      const imagen3Result = await tryImagen3WithAnalysis(identityJson);
-      if (imagen3Result) {
-        res.json({
-          imageBase64: imagen3Result.data,
-          mimeType: imagen3Result.mimeType,
-          background: { category: location, id: background.id, label: background.label },
-          model: "imagen3",
-        });
-        return;
-      }
+      // ── Step 1: age transformation only, background untouched ──────────
+      console.log("[Pipeline] Step 1/2: age transformation");
+      const ageResult = await editImageWithGemini(
+        apiKey,
+        imageBase64,
+        mimeType,
+        EXPERIENCE_PROMPTS[experience],
+      );
 
-      // Fallback: Gemini 2.0 Flash Image Generation
-      const response = (await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
-          },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts }],
-            generationConfig: {
-              responseModalities: ["TEXT", "IMAGE"],
-            },
-          }),
-        },
-      )) as GeminiHttpResponse;
-
-      let payload: Awaited<ReturnType<GeminiHttpResponse["json"]>>;
-      try {
-        payload = await response.json();
-      } catch {
-        req.log?.error(
-          { status: response.status },
-          "Gemini returned an empty or invalid response",
-        );
+      if (!ageResult) {
         res.status(502).json({
-          error: `Gemini returned an invalid response (HTTP ${response.status}).`,
+          error: "Nano Banana could not perform the age transformation.",
         });
         return;
       }
 
-      if (!response.ok) {
-        req.log?.error(
-          { status: response.status, message: payload.error?.message },
-          "Gemini image generation failed",
-        );
-        res.status(502).json({
-          error: payload.error?.message ?? "Nano Banana could not generate the memory.",
-        });
-        return;
-      }
+      // ── Step 2: background swap on the already-aged image ──────────────
+      console.log("[Pipeline] Step 2/2: background replacement");
+      const finalResult = await editImageWithGemini(
+        apiKey,
+        ageResult.data,
+        ageResult.mimeType,
+        buildBackgroundPrompt(background),
+      );
 
-      const generatedPart = payload.candidates
-        ?.flatMap((candidate) => candidate.content?.parts ?? [])
-        .find((part) => part.inlineData?.data);
-
-      if (!generatedPart?.inlineData?.data) {
-        req.log?.error("Gemini returned no image part");
-        res.status(502).json({ error: "Nano Banana returned no image." });
-        return;
+      // If the background step fails for any reason, still return the
+      // age-transformed image rather than nothing — it's the harder, more
+      // important part of the task, so a partial success beats a total one.
+      const output = finalResult ?? ageResult;
+      if (!finalResult) {
+        console.warn("[Pipeline] Background step failed, returning age-only result");
       }
 
       res.json({
-        imageBase64: generatedPart.inlineData.data,
-        mimeType: generatedPart.inlineData.mimeType ?? "image/png",
+        imageBase64: output.data,
+        mimeType: output.mimeType,
         background: {
           category: location,
           id: background.id,
           label: background.label,
         },
+        backgroundApplied: Boolean(finalResult),
       });
     } catch (error) {
       req.log?.error({ err: error }, "Unexpected image generation error");
@@ -605,31 +483,30 @@ router.post("/memory/upload", async (req: MemoryRequest, res: MemoryResponse) =>
       return;
     }
     const data = imageBase64.replace(/^data:[^;]+;base64,/, "");
-    const buffer = Buffer.from(data, "base64");
     const apiKey = process.env.IMGBB_API_KEY;
     if (!apiKey) {
       res.status(503).json({ error: "IMGBB_API_KEY is not configured." });
       return;
     }
-    
+
     const formData = new FormData();
     formData.append("key", apiKey);
     formData.append("image", data);
-    
+
     const uploadRes: any = await fetch("https://api.imgbb.com/1/upload", {
       method: "POST",
       body: formData as any,
     });
-    
+
     if (!uploadRes.ok) {
       throw new Error(`Upload failed with status ${uploadRes.status}`);
     }
-    
+
     const jsonRes = await uploadRes.json();
     if (!jsonRes.data || !jsonRes.data.url) {
       throw new Error("Invalid response from ImgBB");
     }
-    
+
     res.json({ url: jsonRes.data.url });
   } catch (error) {
     req.log?.error({ err: error }, "Failed to upload image to ImgBB");
