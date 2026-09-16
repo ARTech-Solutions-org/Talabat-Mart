@@ -374,52 +374,136 @@ router.post(
       ? [imagePart, { text: prompt }]
       : [{ text: `${prompt}\nThere is no source photo for this demo; create a warm illustrative sample with two people in a locked portrait composition.` }];
 
-    // ── Try Imagen 3 Edit API first (true image editing / age transformation) ──
-    // Uses the generativelanguage.googleapis.com endpoint — same Gemini API key, no Vertex needed.
-    async function tryImagen3Edit(): Promise<{ data: string; mimeType: string } | null> {
-      if (!imagePart) return null; // Imagen requires a source image
+    // ── Two-step age transformation pipeline ──────────────────────────────────
+    // Step 1: Gemini Vision analyzes the photo → precise identity description of both people
+    // Step 2: Imagen 3 (via correct /predict endpoint + x-goog-api-key) uses that description
+    //         to perform a REAL pixel-level age transformation on the uploaded photo.
+    // This dramatically outperforms single-step Gemini Flash which cannot reliably warp faces.
+
+    async function analyzePhotoIdentities(): Promise<string> {
+      if (!imagePart) return "";
       try {
+        const analysisRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                role: "user",
+                parts: [
+                  imagePart,
+                  { text: `Analyze this photo carefully. Return a compact JSON object (no markdown) with this exact structure:
+{
+  "adult": {
+    "position": "left or right",
+    "age_estimate": "e.g. 40",
+    "gender": "man or woman",
+    "skin_tone": "one word e.g. brown, fair, dark",
+    "hair": "color and style e.g. short black",
+    "face_shape": "e.g. oval, round",
+    "distinctive_features": "any beard, glasses, etc",
+    "clothing": "color and type"
+  },
+  "child": {
+    "position": "left or right",
+    "age_estimate": "e.g. 8",
+    "gender": "boy or girl",
+    "skin_tone": "one word",
+    "hair": "color and style",
+    "face_shape": "e.g. round",
+    "distinctive_features": "any notable features",
+    "clothing": "color and type"
+  },
+  "interaction": "describe how they are posed together e.g. standing side by side, arm around shoulder"
+}` }
+                ]
+              }],
+              generationConfig: { responseMimeType: "application/json" }
+            })
+          }
+        );
+        if (!analysisRes.ok) return "";
+        const analysisPayload: any = await analysisRes.json();
+        const text = analysisPayload.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        console.log("[PhotoAnalysis] Identity JSON:", text.slice(0, 300));
+        return text;
+      } catch (e) {
+        console.warn("[PhotoAnalysis] Failed:", e);
+        return "";
+      }
+    }
+
+    async function tryImagen3WithAnalysis(identityJson: string): Promise<{ data: string; mimeType: string } | null> {
+      if (!imagePart) return null;
+
+      // Build an enhanced prompt that includes the precise identity description
+      let identityContext = "";
+      try {
+        const parsed = JSON.parse(identityJson);
+        const adult = parsed.adult ?? {};
+        const child = parsed.child ?? {};
+        identityContext = `
+IDENTITY REFERENCE (extracted from the uploaded photo — use these to maintain recognizability):
+- Adult (${adult.position ?? "unknown"} side): ${adult.age_estimate ?? "?"}yr ${adult.gender ?? "person"}, ${adult.skin_tone ?? ""} skin, ${adult.hair ?? ""} hair, ${adult.face_shape ?? ""} face${adult.distinctive_features ? ", " + adult.distinctive_features : ""}, wearing ${adult.clothing ?? "unknown"}.
+- Child (${child.position ?? "unknown"} side): ${child.age_estimate ?? "?"}yr ${child.gender ?? "child"}, ${child.skin_tone ?? ""} skin, ${child.hair ?? ""} hair${child.distinctive_features ? ", " + child.distinctive_features : ""}, wearing ${child.clothing ?? "unknown"}.
+- Pose: ${parsed.interaction ?? "standing together"}.`;
+      } catch {
+        identityContext = "";
+      }
+
+      const enhancedPrompt = `${prompt}${identityContext}`;
+
+      try {
+        // Correct Imagen 3 endpoint: /predict with x-goog-api-key (NOT generateContent)
         const imgBody = {
-          contents: [
-            {
-              role: "user",
-              parts: [
-                imagePart,
-                { text: prompt },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseModalities: ["IMAGE"],
-            imagenConfig: {
-              numberOfImages: 1,
-              aspectRatio: "1:1",
-              personGeneration: "allow_adult",
-              editConfig: {
-                editMode: "inpaint-insertion",
-              },
-            },
-          },
+          instances: [{
+            prompt: enhancedPrompt,
+            referenceImages: [{
+              referenceType: "REFERENCE_TYPE_RAW",
+              referenceId: 1,
+              referenceImage: {
+                bytesBase64Encoded: imagePart.inlineData.data,
+                mimeType: imagePart.inlineData.mimeType,
+              }
+            }]
+          }],
+          parameters: {
+            editMode: "EDIT_MODE_INPAINT_INSERTION",
+            sampleCount: 1,
+            personGeneration: "allow_adult",
+            outputMimeType: "image/jpeg",
+            outputCompressionQuality: 95,
+          }
         };
         const imgRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-capability-001:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-capability-001:predict?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(imgBody),
-          },
+          }
         );
         if (!imgRes.ok) {
           const errText = await imgRes.text().catch(() => "");
-          console.warn(`[Imagen3] HTTP ${imgRes.status}: ${errText.slice(0, 200)}`);
+          console.warn(`[Imagen3] HTTP ${imgRes.status}: ${errText.slice(0, 300)}`);
           return null;
         }
         const imgPayload: any = await imgRes.json();
-        const imgData = imgPayload.candidates
+        // Imagen predict response format: { predictions: [{ bytesBase64Encoded, mimeType }] }
+        const pred = imgPayload?.predictions?.[0];
+        if (pred?.bytesBase64Encoded) {
+          return { data: pred.bytesBase64Encoded, mimeType: pred.mimeType ?? "image/jpeg" };
+        }
+        // Also try generateContent-style response in case API changed
+        const fromCandidates = imgPayload.candidates
           ?.flatMap((c: any) => c.content?.parts ?? [])
           .find((p: any) => p.inlineData?.data);
-        if (!imgData?.inlineData?.data) return null;
-        return { data: imgData.inlineData.data, mimeType: imgData.inlineData.mimeType ?? "image/jpeg" };
+        if (fromCandidates?.inlineData?.data) {
+          return { data: fromCandidates.inlineData.data, mimeType: fromCandidates.inlineData.mimeType ?? "image/jpeg" };
+        }
+        console.warn("[Imagen3] No image in response:", JSON.stringify(imgPayload).slice(0, 200));
+        return null;
       } catch (e) {
         console.warn("[Imagen3] Exception:", e);
         return null;
@@ -427,8 +511,9 @@ router.post(
     }
 
     try {
-      // First attempt: Imagen 3 (real image edit — dramatically better age transformation)
-      const imagen3Result = await tryImagen3Edit();
+      // Two-step pipeline: Vision analysis → Imagen 3 age transformation
+      const identityJson = await analyzePhotoIdentities();
+      const imagen3Result = await tryImagen3WithAnalysis(identityJson);
       if (imagen3Result) {
         res.json({
           imageBase64: imagen3Result.data,
