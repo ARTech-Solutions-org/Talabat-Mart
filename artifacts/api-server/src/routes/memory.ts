@@ -299,22 +299,24 @@ function buildPrompt(
   const expText = EXPERIENCE_PROMPTS[experience];
   const background = getRandomBackground(location, specificBackgroundId);
 
-  const prompt = `You are given a reference photo of two people. Your task has TWO parts — perform BOTH:
+  const prompt = `You are a professional photo editor. You are given a real photo of two people. Perform BOTH tasks below on the ACTUAL UPLOADED PHOTO — do not generate a new image from scratch:
 
-PART 1 — AGE TRANSFORMATION (PRIMARY TASK — do this first and make it clearly visible):
+TASK 1 — AGE TRANSFORMATION (MANDATORY — this is the main purpose, must be dramatic):
 ${expText}
 
-PART 2 — BACKGROUND REPLACEMENT (SECONDARY TASK — after transformation):
-Replace the original background completely with this new setting:
+TASK 2 — BACKGROUND REPLACEMENT:
+Remove the original background and replace it with:
 ${background.prompt}
-Integrate both subjects naturally into this new environment with realistic lighting and shadows.
+Naturally composite both subjects into the new scene with matching light direction, color temperature, and shadows.
 
-CRITICAL RULES FOR BOTH PARTS:
-- The age transformation in Part 1 MUST be dramatic and obvious — if someone compares the output to the original photo, the transformed person must look clearly younger/older, not the same.
-- PRESERVE facial identity and unique features of each person so they remain recognizable as themselves (just at a different age).
-- Maintain their relative positions and physical interaction (who is on which side, their closeness, any physical contact).
-- Style: Warm, cinematic photorealistic photography, sharp focus on both faces, natural lighting, 4K quality.
-- Do NOT add: text overlays, watermarks, extra people, distorted faces, extra limbs, deformed hands.`;
+STRICT REQUIREMENTS:
+- The age transformation MUST be unmistakably obvious. Body HEIGHT, LIMB PROPORTIONS, MUSCLE MASS, and FACIAL BONE STRUCTURE must all change — not just skin smoothing.
+- BOTH the face AND full body of the transformed person must reflect the new age completely.
+- The non-transformed person must remain 100% unchanged in appearance.
+- Preserve each person's unique facial identity — they should be recognizable as themselves at the new age.
+- Maintain their exact relative positions (left/right placement) and any physical contact (hand-holding, hugging, arm-around-shoulder).
+- Output style: photorealistic, cinematic warm tones, sharp faces, 4K quality.
+- FORBIDDEN: text, watermarks, logos, extra limbs, extra people, blurry faces, deformed hands.`;
 
   return { prompt, background };
 }
@@ -372,7 +374,72 @@ router.post(
       ? [imagePart, { text: prompt }]
       : [{ text: `${prompt}\nThere is no source photo for this demo; create a warm illustrative sample with two people in a locked portrait composition.` }];
 
+    // ── Try Imagen 3 Edit API first (true image editing / age transformation) ──
+    // Uses the generativelanguage.googleapis.com endpoint — same Gemini API key, no Vertex needed.
+    async function tryImagen3Edit(): Promise<{ data: string; mimeType: string } | null> {
+      if (!imagePart) return null; // Imagen requires a source image
+      try {
+        const imgBody = {
+          contents: [
+            {
+              role: "user",
+              parts: [
+                imagePart,
+                { text: prompt },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ["IMAGE"],
+            imagenConfig: {
+              numberOfImages: 1,
+              aspectRatio: "1:1",
+              personGeneration: "allow_adult",
+              editConfig: {
+                editMode: "inpaint-insertion",
+              },
+            },
+          },
+        };
+        const imgRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-capability-001:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(imgBody),
+          },
+        );
+        if (!imgRes.ok) {
+          const errText = await imgRes.text().catch(() => "");
+          console.warn(`[Imagen3] HTTP ${imgRes.status}: ${errText.slice(0, 200)}`);
+          return null;
+        }
+        const imgPayload: any = await imgRes.json();
+        const imgData = imgPayload.candidates
+          ?.flatMap((c: any) => c.content?.parts ?? [])
+          .find((p: any) => p.inlineData?.data);
+        if (!imgData?.inlineData?.data) return null;
+        return { data: imgData.inlineData.data, mimeType: imgData.inlineData.mimeType ?? "image/jpeg" };
+      } catch (e) {
+        console.warn("[Imagen3] Exception:", e);
+        return null;
+      }
+    }
+
     try {
+      // First attempt: Imagen 3 (real image edit — dramatically better age transformation)
+      const imagen3Result = await tryImagen3Edit();
+      if (imagen3Result) {
+        res.json({
+          imageBase64: imagen3Result.data,
+          mimeType: imagen3Result.mimeType,
+          background: { category: location, id: background.id, label: background.label },
+          model: "imagen3",
+        });
+        return;
+      }
+
+      // Fallback: Gemini 2.0 Flash Image Generation
       const response = (await fetch(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent",
         {
