@@ -107,3 +107,7 @@ Desktop.ini
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 scratch/
+
+artifacts/memory-booth/public/uploads/
+*.bak
+

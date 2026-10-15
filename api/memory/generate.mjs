@@ -1,3 +1,31 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+function loadLocalEnv() {
+  const envPaths = [
+    path.resolve(process.cwd(), '.env.local'),
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), '../../.env.local'),
+    path.resolve(process.cwd(), '../../.env'),
+  ];
+  for (const envPath of envPaths) {
+    if (fs.existsSync(envPath)) {
+      try {
+        const fileContent = fs.readFileSync(envPath, 'utf8');
+        for (const line of fileContent.split(/\r?\n/)) {
+          const match = line.match(/^\s*([A-Za-z_0-9]+)\s*=\s*(.*)?\s*$/);
+          if (match && !process.env[match[1]]) {
+            let val = (match[2] || '').trim();
+            val = val.replace(/^['"]|['"]$/g, '');
+            process.env[match[1]] = val;
+          }
+        }
+      } catch (e) {}
+    }
+  }
+}
+loadLocalEnv();
+
 // Vercel Serverless Function — /api/memory/generate (ESM .mjs)
 
 export const config = {
@@ -247,15 +275,113 @@ const CANDIDATE_MODELS = [
   'gemini-2.5-flash-image',
 ];
 
+
+async function generateWithOpenAISunburst(apiKey, cleanBase64, cleanMime, prompt) {
+  console.log('[OpenAI] Initiating image generation with model: gpt-image-2.5-sunburst');
+
+  if (cleanBase64) {
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    const blob = new Blob([buffer], { type: cleanMime || 'image/jpeg' });
+
+    const formData = new FormData();
+    formData.append('model', 'gpt-image-2.5-sunburst');
+    formData.append('image', blob, 'photo.jpg');
+    formData.append('prompt', prompt);
+    formData.append('quality', 'medium');
+    formData.append('size', '1536x1024');
+
+    console.log('[OpenAI] Calling https://api.openai.com/v1/images/edits');
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: formData,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const errorMsg = payload?.error?.message || `HTTP ${response.status}`;
+      console.error(`[OpenAI Sunburst] Edit failed (${response.status}):`, errorMsg);
+      throw new Error(`[gpt-image-2.5-sunburst] ${errorMsg}`);
+    }
+
+    const item = payload.data?.[0];
+    if (!item) {
+      throw new Error('[gpt-image-2.5-sunburst] No image returned in response.');
+    }
+
+    if (item.b64_json) {
+      const mime = payload.output_format ? `image/${payload.output_format}` : 'image/png';
+      return { data: item.b64_json, mimeType: mime };
+    }
+
+    if (item.url) {
+      console.log('[OpenAI Sunburst] Fetching image from result URL...');
+      const imgRes = await fetch(item.url);
+      const arrBuf = await imgRes.arrayBuffer();
+      return {
+        data: Buffer.from(arrBuf).toString('base64'),
+        mimeType: imgRes.headers.get('content-type') || 'image/png',
+      };
+    }
+  } else {
+    console.log('[OpenAI] Calling https://api.openai.com/v1/images/generations');
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-image-2.5-sunburst',
+        prompt,
+        quality: 'medium',
+        size: '1536x1024',
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const errorMsg = payload?.error?.message || `HTTP ${response.status}`;
+      console.error(`[OpenAI Sunburst] Generation failed (${response.status}):`, errorMsg);
+      throw new Error(`[gpt-image-2.5-sunburst] ${errorMsg}`);
+    }
+
+    const item = payload.data?.[0];
+    if (item?.b64_json) {
+      const mime = payload.output_format ? `image/${payload.output_format}` : 'image/png';
+      return { data: item.b64_json, mimeType: mime };
+    }
+    if (item?.url) {
+      const imgRes = await fetch(item.url);
+      const arrBuf = await imgRes.arrayBuffer();
+      return {
+        data: Buffer.from(arrBuf).toString('base64'),
+        mimeType: imgRes.headers.get('content-type') || 'image/png',
+      };
+    }
+  }
+
+  throw new Error('[gpt-image-2.5-sunburst] No image payload received from OpenAI.');
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  loadLocalEnv();
+  const openaiApiKey = process.env.OPENAI_API_KEY;
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error('GEMINI_API_KEY is not configured in environment variables');
-    return res.status(503).json({ error: 'GEMINI_API_KEY is not configured on Vercel.' });
+
+  if (!openaiApiKey && !apiKey) {
+    console.error('Neither OPENAI_API_KEY nor GEMINI_API_KEY is configured');
+    return res.status(503).json({
+      error: 'API key is missing. Please set OPENAI_API_KEY (for gpt-image-2.5-sunburst) or GEMINI_API_KEY in .env.local',
+    });
   }
 
   const {
@@ -311,6 +437,31 @@ export default async function handler(req, res) {
       responseModalities: ['TEXT', 'IMAGE'],
     },
   });
+
+  // 1. Try OpenAI gpt-image-2.5-sunburst if OPENAI_API_KEY is available
+  if (openaiApiKey) {
+    try {
+      const sunburstResult = await generateWithOpenAISunburst(openaiApiKey, cleanBase64, cleanMime, prompt);
+      console.log('Successfully generated image using gpt-image-2.5-sunburst!');
+      return res.status(200).json({
+        imageBase64: sunburstResult.data,
+        mimeType: sunburstResult.mimeType,
+        background: {
+          category: location,
+          id: background.id,
+          label: background.label,
+        },
+      });
+    } catch (err) {
+      console.error('[OpenAI Sunburst Exception]:', err.message);
+      if (!apiKey) {
+        return res.status(502).json({
+          error: `OpenAI Sunburst error: ${err.message}`,
+        });
+      }
+      console.warn('Falling back to Gemini models after OpenAI failure...');
+    }
+  }
 
   let lastError = null;
 

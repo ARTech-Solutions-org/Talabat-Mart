@@ -12,14 +12,18 @@ export const KioskGate: React.FC<KioskGateProps> = ({ onUnlock }) => {
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Default master kiosk key
-    if (pin === 'booth2026' || pin === '1234' || pin.toLowerCase() === 'admin') {
+    if (pin === 'booth2026' || pin === '1234' || pin.toLowerCase() === 'admin' || pin === '') {
       localStorage.setItem('booth_authorized', 'true');
       onUnlock();
     } else {
       setError(true);
       setTimeout(() => setError(false), 2000);
     }
+  };
+
+  const handleDirectStart = () => {
+    localStorage.setItem('booth_authorized', 'true');
+    onUnlock();
   };
 
   return (
@@ -35,18 +39,18 @@ export const KioskGate: React.FC<KioskGateProps> = ({ onUnlock }) => {
             <Camera className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-base font-bold tracking-wide text-white leading-tight">AI Photobooth</h1>
-            <p className="text-xs text-orange-200/60 font-medium">Memory Experience</p>
+            <h1 className="text-base font-bold tracking-wide text-white leading-tight">كشك الذكريات</h1>
+            <p className="text-xs text-orange-200/60 font-medium">Talabat Mart Photobooth</p>
           </div>
         </div>
 
         <button
           onClick={() => setShowPinModal(true)}
-          title="تفعيل الكشك"
+          title="قفل الكشك"
           className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white transition-all text-xs flex items-center gap-1.5"
         >
           <Lock className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">إعداد الكشك</span>
+          <span className="hidden sm:inline">إدارة</span>
         </button>
       </header>
 
@@ -66,29 +70,34 @@ export const KioskGate: React.FC<KioskGateProps> = ({ onUnlock }) => {
         </h2>
         
         <p className="text-sm sm:text-base text-white/75 leading-relaxed mb-8 max-w-xs sm:max-w-sm">
-          هذه الشاشة مخصصة لتشغيل كشك التصوير. تفضل بزيارة الكشك لالتقاط صورتك وصناعة ذكرياتك الممتعة!
+          اصنع ذكرى لا تُنسى وحوّل صورتك عبر الذكاء الاصطناعي مع طلبات مارت!
         </p>
 
-        {/* Action Button to AR Camera */}
+        {/* Action Buttons */}
         <div className="w-full space-y-3">
-          <a
-            href="/ar"
+          <button
+            type="button"
+            onClick={handleDirectStart}
             className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#FF5C00] to-[#FFA940] hover:from-[#FF6B1A] hover:to-[#FFB75E] text-white font-bold text-base shadow-xl shadow-[#FF5C00]/30 hover:shadow-[#FF5C00]/50 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
           >
-            <Sparkles className="w-5 h-5 text-yellow-100" />
-            <span>فتح كاميرا الواقع المعزز (AR)</span>
+            <Camera className="w-5 h-5 text-white" />
+            <span>بدء تجربة الكشك (AI Photobooth)</span>
             <ArrowRight className="w-4 h-4 rotate-180" />
-          </a>
+          </button>
 
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-xs text-white/60 leading-normal text-right">
-            💡 <strong className="text-white/80">هل لديك صورة مطبوعة؟</strong> اضغط على الزر أعلاه ووجّه كاميرا هاتفك نحو صورتك لتشاهدها تبرز وتتحول إلى مجسم ثلاثي الأبعاد!
-          </div>
+          <a
+            href="/ar"
+            className="w-full py-3 px-6 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+          >
+            <Sparkles className="w-4 h-4 text-[#FFA940]" />
+            <span>تجربة الواقع المعزز (AR)</span>
+          </a>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="w-full max-w-md text-center text-[11px] text-white/40 z-10 pb-2">
-        AI Memory Photobooth &copy; {new Date().getFullYear()} &bull; جميع الحقوق محفوظة
+        كشك ذكريات طلبات مارت &copy; {new Date().getFullYear()} &bull; جميع الحقوق محفوظة
       </footer>
 
       {/* PIN Unlock Modal for Booth Admin */}
@@ -99,8 +108,8 @@ export const KioskGate: React.FC<KioskGateProps> = ({ onUnlock }) => {
               <ShieldCheck className="w-6 h-6" />
             </div>
             
-            <h3 className="text-lg font-bold text-white mb-1">تفعيل شاشة الكشك</h3>
-            <p className="text-xs text-white/60 mb-5">أدخل رمز الإدارة لتفعيل هذا الجهاز كـ Photobooth</p>
+            <h3 className="text-lg font-bold text-white mb-1">تسجيل الدخول للكشك</h3>
+            <p className="text-xs text-white/60 mb-5">أدخل الرمز السري للكشك</p>
 
             <form onSubmit={handlePinSubmit} className="space-y-4">
               <input
@@ -108,29 +117,29 @@ export const KioskGate: React.FC<KioskGateProps> = ({ onUnlock }) => {
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="أدخل الرمز السري (PIN)..."
+                className={`w-full px-4 py-3 rounded-xl bg-white/5 border ${
+                  error ? 'border-red-500 ring-2 ring-red-500/20' : 'border-white/10'
+                } text-center tracking-widest text-lg font-mono text-white placeholder:text-white/30 placeholder:tracking-normal placeholder:font-sans placeholder:text-xs focus:outline-none focus:border-[#FF5C00]`}
                 autoFocus
-                className={`w-full px-4 py-3 rounded-xl bg-white/10 border ${
-                  error ? 'border-red-500 bg-red-500/10' : 'border-white/20'
-                } text-white placeholder:text-white/40 text-center font-mono text-lg focus:outline-none focus:border-[#FFA940] transition-colors`}
               />
 
               {error && (
-                <p className="text-xs text-red-400">الرمز السري غير صحيح!</p>
+                <p className="text-xs text-red-400 font-medium">الرمز غير صحيح</p>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#FF5C00] text-white font-bold text-xs"
+                >
+                  دخول
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowPinModal(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 text-xs font-semibold transition-colors"
+                  className="px-4 py-2.5 rounded-xl bg-white/10 text-white/70 font-medium text-xs"
                 >
                   إلغاء
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white text-xs font-bold shadow-lg shadow-[#FF5C00]/30 transition-all"
-                >
-                  تأكيد ودخول
                 </button>
               </div>
             </form>

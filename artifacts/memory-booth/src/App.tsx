@@ -655,8 +655,8 @@ function ResultStep({
         <>
           <div className="qr-backdrop no-print" onClick={onCloseQR} />
           <div className="qr-modal no-print" dir="rtl">
-            <h2 className="!text-xl font-bold mb-1">احفظ صورتك 📸</h2>
-            <p className="!text-xs !mb-4 text-white/80">امسح الرمز بكاميرا هاتفك لتحميل وحفظ صورتك التذكارية بجودة عالية</p>
+            <h2 className="!text-xl font-bold mb-1">امسح الكود بهاتفك 📸</h2>
+            <p className="!text-xs !mb-3 text-white/80">امسح الرمز بكاميرا هاتفك لتحميل صورتك التذكارية فوراً</p>
             <div className="bg-white p-3 rounded-2xl shadow-inner inline-block mx-auto mb-3">
               <QRCodeSVG value={qrUrl} size={180} bgColor="#ffffff" fgColor="#3D0C17" level="Q" />
             </div>
@@ -667,7 +667,7 @@ function ResultStep({
                 rel="noreferrer"
                 className="px-4 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5"
               >
-                <span>تحميل الصورة</span>
+                <span>فتح صفحة التحميل</span>
               </a>
               <button className="qr-close-btn !mt-0 !py-2 !px-4" onClick={onCloseQR}>إغلاق</button>
             </div>
@@ -986,26 +986,44 @@ function Home() {
       const rawAiImg = generatedImage ?? demoGeneratedPhoto;
       const rawOrigImg = photoDataUrl ?? demoPhoto;
       const framedBase64 = await createFramedImageBase64(rawOrigImg, rawAiImg);
-      const res = await fetch('/api/memory/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+
+      // Fast direct browser download for users testing directly on mobile/browser
+      try {
+        const dlLink = document.createElement("a");
+        dlLink.download = `talabat-mart-memory-${Date.now()}.jpg`;
+        dlLink.href = framedBase64;
+        document.body.appendChild(dlLink);
+        dlLink.click();
+        document.body.removeChild(dlLink);
+      } catch (e) {
+        console.warn("Direct download skipped:", e);
+      }
+
+      const res = await fetch("/api/memory/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: framedBase64 }),
       });
       const text = await res.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      const saveUrl = `${window.location.origin}/save.html?img=${encodeURIComponent(data.url)}`;
+
+      // Public host resolution: use ngrok if on localhost so phones scanning the screen work
+      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const baseHost = isLocal ? "https://penholder-venture-smudgy.ngrok-free.dev" : window.location.origin;
+
+      const photoUrl = data.url.startsWith("http") ? data.url : `${baseHost}${data.url}`;
+      const saveUrl = `${baseHost}/save.html?ngrok-skip-browser-warning=true&img=${encodeURIComponent(photoUrl)}`;
       setQrUrl(saveUrl);
       setSaved(true);
-      showToast('تم حفظ الصورة! امسح الرمز لتحميلها على هاتفك');
+      showToast("تم حفظ الصورة بنجاح! جاهزة للتحميل");
     } catch (err: any) {
-      showToast(err.message || 'Upload failed.', true);
+      showToast(err.message || "فشل حفظ الصورة، يرجى المحاولة مرة أخرى", true);
     } finally {
       setIsUploading(false);
     }
   };
-
   return (
     <div className="booth-shell">
       <AnimatePresence mode="wait">
