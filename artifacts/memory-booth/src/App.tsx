@@ -660,16 +660,8 @@ function ResultStep({
             <div className="bg-white p-3 rounded-2xl shadow-inner inline-block mx-auto mb-3">
               <QRCodeSVG value={qrUrl} size={180} bgColor="#ffffff" fgColor="#3D0C17" level="Q" />
             </div>
-            <div className="flex gap-2 justify-center w-full mt-1">
-              <a
-                href={qrUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>فتح الصورة على ImgBB</span>
-              </a>
-              <button className="qr-close-btn !mt-0 !py-2 !px-4" onClick={onCloseQR}>إغلاق</button>
+            <div className="flex justify-center w-full mt-2">
+              <button className="qr-close-btn" onClick={onCloseQR}>إغلاق</button>
             </div>
           </div>
         </>
@@ -997,9 +989,16 @@ function Home() {
       try { data = JSON.parse(text); } catch {}
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-      setQrUrl(data.url);
+      // Public host resolution: point to save.html so phone scanner opens our custom save page
+      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const baseHost = isLocal ? "https://talabat-mart-photo-booth.vercel.app" : window.location.origin;
+
+      const photoUrl = data.url;
+      const savePageUrl = `${baseHost}/save.html?img=${encodeURIComponent(photoUrl)}`;
+
+      setQrUrl(savePageUrl);
       setSaved(true);
-      showToast("تم رفع الصورة إلى ImgBB بنجاح!");
+      showToast("تم حفظ الصورة! امسح الرمز بهاتفك لتحميلها");
     } catch (err: any) {
       showToast(err.message || "فشل رفع الصورة إلى ImgBB، يرجى المحاولة مرة أخرى", true);
     } finally {
