@@ -667,7 +667,7 @@ function ResultStep({
                 rel="noreferrer"
                 className="px-4 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5"
               >
-                <span>فتح صفحة التحميل</span>
+                <span>فتح الصورة على ImgBB</span>
               </a>
               <button className="qr-close-btn !mt-0 !py-2 !px-4" onClick={onCloseQR}>إغلاق</button>
             </div>
@@ -987,18 +987,6 @@ function Home() {
       const rawOrigImg = photoDataUrl ?? demoPhoto;
       const framedBase64 = await createFramedImageBase64(rawOrigImg, rawAiImg);
 
-      // Fast direct browser download for users testing directly on mobile/browser
-      try {
-        const dlLink = document.createElement("a");
-        dlLink.download = `talabat-mart-memory-${Date.now()}.jpg`;
-        dlLink.href = framedBase64;
-        document.body.appendChild(dlLink);
-        dlLink.click();
-        document.body.removeChild(dlLink);
-      } catch (e) {
-        console.warn("Direct download skipped:", e);
-      }
-
       const res = await fetch("/api/memory/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1009,17 +997,11 @@ function Home() {
       try { data = JSON.parse(text); } catch {}
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-      // Public host resolution: use ngrok if on localhost so phones scanning the screen work
-      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const baseHost = isLocal ? "https://penholder-venture-smudgy.ngrok-free.dev" : window.location.origin;
-
-      const photoUrl = data.url.startsWith("http") ? data.url : `${baseHost}${data.url}`;
-      const saveUrl = `${baseHost}/save.html?ngrok-skip-browser-warning=true&img=${encodeURIComponent(photoUrl)}`;
-      setQrUrl(saveUrl);
+      setQrUrl(data.url);
       setSaved(true);
-      showToast("تم حفظ الصورة بنجاح! جاهزة للتحميل");
+      showToast("تم رفع الصورة إلى ImgBB بنجاح!");
     } catch (err: any) {
-      showToast(err.message || "فشل حفظ الصورة، يرجى المحاولة مرة أخرى", true);
+      showToast(err.message || "فشل رفع الصورة إلى ImgBB، يرجى المحاولة مرة أخرى", true);
     } finally {
       setIsUploading(false);
     }

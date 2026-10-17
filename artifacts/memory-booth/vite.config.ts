@@ -71,37 +71,33 @@ function localMemoryBoothApiPlugin() {
               rawData += chunk;
             }
             const body = rawData ? JSON.parse(rawData) : {};
-            const { imageBase64 } = body;
-            if (!imageBase64) {
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              return res.end(JSON.stringify({ error: 'Missing image data' }));
-            }
 
-            const fs = await import('fs');
-            const path = await import('path');
-            const clean = imageBase64.replace(/^data:image\/[a-zA-Z0-9.+_-]+;base64,/, '').replace(/^data:[^;]+;base64,/, '');
-            const buffer = Buffer.from(clean, 'base64');
+            const uploadModule = await import('../../api/memory/upload.mjs');
+            const handler = uploadModule.default;
 
-            const uploadsDir = path.resolve(import.meta.dirname, 'public/uploads');
-            if (!fs.existsSync(uploadsDir)) {
-              fs.mkdirSync(uploadsDir, { recursive: true });
-            }
+            const mockRes = {
+              statusCode: 200,
+              status(code: number) {
+                this.statusCode = code;
+                return this;
+              },
+              json(payload: any) {
+                res.writeHead(this.statusCode, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(payload));
+              },
+              setHeader(k: string, v: string) {
+                res.setHeader(k, v);
+              },
+              end(data: any) {
+                res.end(data);
+              },
+            };
 
-            const fileName = `memory_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`;
-            const filePath = path.join(uploadsDir, fileName);
-            fs.writeFileSync(filePath, buffer);
-
-            console.log('[Local Upload API] Saved image locally to:', filePath);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-              url: `/uploads/${fileName}`,
-              filename: fileName,
-              success: true
-            }));
+            await handler({ ...req, body, method: req.method }, mockRes);
           } catch (err: any) {
-            console.error('[Local Upload API Error]:', err);
+            console.error('[Upload API Error]:', err);
             res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err?.message || String(err) }));
+            res.end(JSON.stringify({ error: err && err.message ? err.message : String(err) }));
           }
         } else {
           next();
